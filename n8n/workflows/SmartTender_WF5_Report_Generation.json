@@ -1,0 +1,260 @@
+{
+  "name": "WF-5 — Report Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "report-generation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "smarttender-report-gen"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, tender_id: $json.tender_id, status: 'report_generating' }) }}",
+        "options": {}
+      },
+      "id": "node-respond",
+      "name": "Respond Immediately",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 140]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8000/api/v1/tenders/{{ $json.tender_id }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/json" }] },
+        "options": { "timeout": 10000, "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "node-fetch-tender",
+      "name": "Fetch Tender Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 260],
+      "notes": "Returns: { id, reference_number, title, estimated_cost, submission_date, issuing_authority, status }"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8000/api/v1/tenders/{{ $('Webhook Trigger').first().json.tender_id }}/bidders",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/json" }] },
+        "options": { "timeout": 10000, "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "node-fetch-bidders",
+      "name": "Fetch All Bidders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 360],
+      "notes": "Returns array of bidders: { id, name, city, submission_time, jv_flag }"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8000/api/v1/criteria?tender_id={{ $('Webhook Trigger').first().json.tender_id }}&status=confirmed",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/json" }] },
+        "options": { "timeout": 10000, "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "node-fetch-criteria",
+      "name": "Fetch All Criteria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 460],
+      "notes": "Only confirmed criteria — unreviewed criteria should never appear in a final report."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8000/api/v1/verdicts?tender_id={{ $('Webhook Trigger').first().json.tender_id }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/json" }] },
+        "options": { "timeout": 10000, "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "node-fetch-verdicts",
+      "name": "Fetch All Verdicts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 560],
+      "notes": "Includes officer_override fields. Any MANUAL_REVIEW still pending will be flagged in the report."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8000/api/v1/evidence?tender_id={{ $('Webhook Trigger').first().json.tender_id }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/json" }] },
+        "options": { "timeout": 10000, "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "node-fetch-evidence",
+      "name": "Fetch All Evidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 660],
+      "notes": "Used for per-criterion source citations in verdict cards. Linked by criterion_id + bidder_id."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// DETERMINISTIC REPORT BUILDER\n// All tables, verdict cards, and per-bidder summaries are\n// built HERE from raw data — NOT by the LLM.\n// The LLM only writes the 2-3 sentence narrative summary.\n// This guarantees factual accuracy regardless of LLM output.\n// ═══════════════════════════════════════════════════════\n\nconst tender = $('Fetch Tender Metadata').first().json;\nconst bidders = $('Fetch All Bidders').first().json;\nconst criteriaRaw = $('Fetch All Criteria').first().json;\nconst verdictsRaw = $('Fetch All Verdicts').first().json;\nconst evidenceRaw = $('Fetch All Evidence').first().json;\n\nconst criteria = Array.isArray(criteriaRaw) ? criteriaRaw : (criteriaRaw.criteria || []);\nconst verdicts = Array.isArray(verdictsRaw) ? verdictsRaw : (verdictsRaw.verdicts || []);\nconst evidence = Array.isArray(evidenceRaw) ? evidenceRaw : (evidenceRaw.evidence || []);\nconst bidderList = Array.isArray(bidders) ? bidders : (bidders.bidders || []);\n\n// Build verdict lookup: bidder_id + criterion_id → verdict\nconst verdictMap = {};\nfor (const v of verdicts) {\n  verdictMap[`${v.bidder_id}__${v.criterion_id}`] = v;\n}\n\n// Build evidence lookup: bidder_id + criterion_id → evidence\nconst evidenceMap = {};\nfor (const e of evidence) {\n  evidenceMap[`${e.bidder_id}__${e.criterion_id}`] = e;\n}\n\n// ── Build per-bidder verdict cards (deterministic) ──\nconst bidderCards = bidderList.map(bidder => {\n  const criterionResults = criteria.map(criterion => {\n    const key = `${bidder.id}__${criterion.id}`;\n    const v = verdictMap[key];\n    const e = evidenceMap[key];\n    return {\n      criterion_id: criterion.criterion_id,\n      criterion_name: criterion.name,\n      criterion_type: criterion.type,\n      mandatory: criterion.mandatory,\n      threshold_value: criterion.threshold_value,\n      threshold_unit: criterion.threshold_unit,\n      verdict: v?.verdict || 'PENDING',\n      verdict_reason: v?.reason || 'Not yet evaluated',\n      verdict_confidence: v?.verdict_confidence || null,\n      verdict_method: v?.verdict_method || null,\n      officer_override: v?.officer_override || null,\n      officer_override_reason: v?.officer_override_reason || null,\n      extracted_value: e?.value || null,\n      quoted_text: e?.quoted_text || null,\n      source_page: e?.source_page || null\n    };\n  });\n\n  // Overall bidder verdict: ELIGIBLE only if ALL mandatory criteria pass\n  const mandatoryCriteria = criterionResults.filter(r => r.mandatory === true);\n  const allMandatoryPass = mandatoryCriteria.every(r => r.verdict === 'ELIGIBLE');\n  const anyManualPending = criterionResults.some(r => r.verdict === 'MANUAL_REVIEW');\n  const failedCriteria = criterionResults.filter(r => r.verdict === 'INELIGIBLE').map(r => r.criterion_id);\n\n  let overallVerdict;\n  if (anyManualPending) overallVerdict = 'PENDING_REVIEW';\n  else if (allMandatoryPass) overallVerdict = 'ELIGIBLE';\n  else overallVerdict = 'INELIGIBLE';\n\n  return {\n    bidder_id: bidder.id,\n    bidder_name: bidder.name,\n    bidder_city: bidder.city || '',\n    jv_flag: bidder.jv_flag || false,\n    submission_time: bidder.submission_time || null,\n    overall_verdict: overallVerdict,\n    failed_criteria: failedCriteria,\n    pending_review_count: criterionResults.filter(r => r.verdict === 'MANUAL_REVIEW').length,\n    criterion_results: criterionResults\n  };\n});\n\n// ── Master eligibility matrix (for the summary table) ──\nconst eligible = bidderCards.filter(b => b.overall_verdict === 'ELIGIBLE');\nconst ineligible = bidderCards.filter(b => b.overall_verdict === 'INELIGIBLE');\nconst pending = bidderCards.filter(b => b.overall_verdict === 'PENDING_REVIEW');\n\n// ── Build a compact narrative prompt for Mistral ──\n// Only the SUMMARY paragraph — tables come from deterministic code\nconst narrativePromptData = {\n  tender_reference: tender.reference_number || tender.id,\n  tender_title: tender.title,\n  total_bidders: bidderList.length,\n  eligible_count: eligible.length,\n  ineligible_count: ineligible.length,\n  pending_count: pending.length,\n  eligible_bidder_names: eligible.map(b => b.bidder_name),\n  ineligible_summary: ineligible.map(b => ({\n    name: b.bidder_name,\n    failed: b.failed_criteria\n  }))\n};\n\nreturn [{\n  json: {\n    tender,\n    bidderCards,\n    criteria,\n    eligible,\n    ineligible,\n    pending,\n    narrativePromptData,\n    include_audit_trail: $('Webhook Trigger').first().json.include_audit_trail || false,\n    generated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-build-data",
+      "name": "Build Report Data (Deterministic)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 460],
+      "notes": "Builds ALL structured data deterministically — verdict cards, matrix, per-criterion results. LLM only writes the narrative summary. This guarantees tables are always accurate even if LLM fails."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://model-runner.docker.internal/engines/llama.cpp/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"ai/mistral-7b-instruct-q4\",\n  \"temperature\": 0.2,\n  \"max_tokens\": 600,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a procurement officer writing a formal evaluation report for the Indian government.\\nWrite in formal English. Be factual, concise, and neutral.\\nReturn ONLY a JSON object with exactly two fields: summary and recommendation.\\nNo markdown. No fences. Start with { and end with }\\n\\n{\\n  \\\"summary\\\": \\\"3-4 sentence paragraph summarising the evaluation outcome\\\",\\n  \\\"recommendation\\\": \\\"1-2 sentences on next steps for the procurement officer\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Write the summary and recommendation section for this tender evaluation:\\n\\nTender: {{ $json.narrativePromptData.tender_reference }} — {{ $json.narrativePromptData.tender_title }}\\nTotal bidders evaluated: {{ $json.narrativePromptData.total_bidders }}\\nEligible for financial bid: {{ $json.narrativePromptData.eligible_count }} ({{ JSON.stringify($json.narrativePromptData.eligible_bidder_names) }})\\nIneligible: {{ $json.narrativePromptData.ineligible_count }}\\nPending officer review: {{ $json.narrativePromptData.pending_count }}\\nIneligible reasons: {{ JSON.stringify($json.narrativePromptData.ineligible_summary) }}\\n\\nReturn only the JSON object.\"\n    }\n  ]\n}",
+        "options": {
+          "timeout": 60000,
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-llm-narrative",
+      "name": "LLM — Narrative Summary Only",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 460],
+      "notes": "LLM writes ONLY the summary + recommendation paragraphs. Max 600 tokens — small and focused. All tables, numbers, and verdicts come from deterministic code, never from LLM."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse LLM narrative. On failure, use a safe fallback — never block report generation.\nconst llmResponse = $input.first().json;\nconst reportData = $('Build Report Data (Deterministic)').first().json;\n\nlet raw = llmResponse.choices?.[0]?.message?.content || '';\nraw = raw.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/i, '').trim();\n\nconst objStart = raw.indexOf('{');\nconst objEnd = raw.lastIndexOf('}');\n\nlet narrative = {\n  summary: `Technical bid evaluation for Tender ${reportData.tender?.reference_number || reportData.tender?.id} has been completed. ${reportData.eligible.length} bidder(s) qualified and ${reportData.ineligible.length} bidder(s) were found ineligible.`,\n  recommendation: 'Financial bids of eligible bidders may be opened as per schedule. Rejection letters to be issued to ineligible bidders with specific criterion references.'\n};\n\nif (objStart !== -1 && objEnd !== -1) {\n  try {\n    const parsed = JSON.parse(raw.substring(objStart, objEnd + 1));\n    if (parsed.summary) narrative.summary = parsed.summary;\n    if (parsed.recommendation) narrative.recommendation = parsed.recommendation;\n  } catch (e) {\n    // Use fallback narrative — safe default\n    console.log('LLM narrative parse failed, using fallback:', e.message);\n  }\n}\n\n// Merge narrative into report data\nreturn [{\n  json: {\n    ...reportData,\n    narrative\n  }\n}];"
+      },
+      "id": "node-parse-narrative",
+      "name": "Parse Narrative (With Fallback)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 460],
+      "notes": "If LLM fails or returns unparseable output, a safe fallback narrative is used. Report generation NEVER blocks on LLM failure."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the complete HTML report.\n// Uses only inline CSS — WeasyPrint has limited CSS3 support.\n// No flexbox, no grid, no external fonts, no relative units in critical layout.\n// All tables use border-collapse with explicit border attributes.\n\nconst d = $input.first().json;\nconst { tender, bidderCards, criteria, eligible, ineligible, pending, narrative, generated_at } = d;\n\nconst NAVY = '#1B3A6B';\nconst GREEN = '#1A5C35';\nconst GREEN_LIGHT = '#D4F0DC';\nconst RED = '#7A1F1F';\nconst RED_LIGHT = '#FAE0E0';\nconst AMBER = '#7A4E00';\nconst AMBER_LIGHT = '#FFF3CD';\nconst GRAY = '#595959';\nconst BORDER = '#CCCCCC';\n\nfunction verdictBadge(verdict) {\n  const map = {\n    ELIGIBLE:      { bg: GREEN_LIGHT, color: GREEN,  label: 'ELIGIBLE' },\n    INELIGIBLE:    { bg: RED_LIGHT,   color: RED,    label: 'INELIGIBLE' },\n    MANUAL_REVIEW: { bg: AMBER_LIGHT, color: AMBER,  label: 'REVIEW' },\n    PENDING_REVIEW:{ bg: AMBER_LIGHT, color: AMBER,  label: 'PENDING' },\n    PENDING:       { bg: '#F2F4F7',   color: GRAY,   label: 'PENDING' }\n  };\n  const s = map[verdict] || { bg: '#F2F4F7', color: GRAY, label: verdict };\n  return `<span style=\"background:${s.bg};color:${s.color};font-weight:bold;padding:2px 8px;border-radius:3px;font-size:11px;font-family:Arial,sans-serif\">${s.label}</span>`;\n}\n\nfunction th(text, width) {\n  return `<th style=\"background:${NAVY};color:#ffffff;padding:8px 10px;text-align:left;font-family:Arial,sans-serif;font-size:12px;${width ? 'width:'+width+';' : ''}\">${text}</th>`;\n}\nfunction td(text, extra) {\n  return `<td style=\"padding:7px 10px;border-bottom:1px solid ${BORDER};font-family:Arial,sans-serif;font-size:12px;vertical-align:top;${extra||''}\">${text||'—'}</td>`;\n}\nfunction tdCenter(text) {\n  return `<td style=\"padding:7px 10px;border-bottom:1px solid ${BORDER};font-family:Arial,sans-serif;font-size:12px;text-align:center;vertical-align:middle;\">${text||'—'}</td>`;\n}\n\n// ── Section: Master Eligibility Matrix ──\nlet matrixRows = '';\nfor (const bidder of bidderCards) {\n  let criteriaVerdicts = '';\n  for (const cr of bidder.criterion_results) {\n    criteriaVerdicts += tdCenter(verdictBadge(cr.verdict));\n  }\n  matrixRows += `<tr>${td(bidder.bidder_name, 'font-weight:bold')}${criteriaVerdicts}${tdCenter(verdictBadge(bidder.overall_verdict))}</tr>`;\n}\n\nlet matrixHeaders = th('Bidder', '180px');\nfor (const cr of criteria) {\n  matrixHeaders += th(cr.criterion_id + '<br><span style=\"font-size:10px;font-weight:normal\">' + cr.name + '</span>', '110px');\n}\nmatrixHeaders += th('Overall', '100px');\n\nconst masterMatrix = `\n<h2 style=\"color:${NAVY};font-family:Arial,sans-serif;font-size:15px;border-bottom:2px solid ${NAVY};padding-bottom:6px;margin-top:28px\">Master Eligibility Matrix</h2>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;border:1px solid ${BORDER};margin-top:10px\">\n  <thead><tr>${matrixHeaders}</tr></thead>\n  <tbody>${matrixRows}</tbody>\n</table>`;\n\n// ── Section: Per-Bidder Verdict Cards ──\nlet bidderSections = '';\nfor (const bidder of bidderCards) {\n  const overallColor = bidder.overall_verdict === 'ELIGIBLE' ? GREEN : bidder.overall_verdict === 'INELIGIBLE' ? RED : AMBER;\n  const overallBg = bidder.overall_verdict === 'ELIGIBLE' ? GREEN_LIGHT : bidder.overall_verdict === 'INELIGIBLE' ? RED_LIGHT : AMBER_LIGHT;\n\n  let criterionRows = '';\n  for (const cr of bidder.criterion_results) {\n    const override = cr.officer_override ? `<br><span style=\"font-size:10px;color:${AMBER}\">Officer override: ${cr.officer_override} — ${cr.officer_override_reason || ''}</span>` : '';\n    criterionRows += `<tr>\n      ${td(cr.criterion_id)}\n      ${td(cr.criterion_name, 'font-weight:bold')}\n      ${td(cr.extracted_value !== null ? String(cr.extracted_value) : '—')}\n      ${td(cr.threshold_value !== null ? `${cr.threshold_value} ${cr.threshold_unit||''}` : '—')}\n      ${td(cr.quoted_text ? `<em style=\"font-size:11px;color:${GRAY}\">&ldquo;${cr.quoted_text}&rdquo;</em><br>Page ${cr.source_page||'?'}` : '—')}\n      ${tdCenter(verdictBadge(cr.verdict) + override)}\n    </tr>`;\n  }\n\n  bidderSections += `\n<div style=\"margin-top:24px;border:1px solid ${BORDER};border-radius:4px;overflow:hidden;page-break-inside:avoid\">\n  <div style=\"background:${overallBg};padding:12px 16px;border-bottom:2px solid ${overallColor}\">\n    <span style=\"font-family:Arial,sans-serif;font-size:14px;font-weight:bold;color:${overallColor}\">${bidder.bidder_name}</span>\n    ${bidder.jv_flag ? '<span style=\"font-size:11px;color:#5B2D8E;margin-left:10px\">[Joint Venture]</span>' : ''}\n    <span style=\"float:right\">${verdictBadge(bidder.overall_verdict)}</span>\n  </div>\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse\">\n    <thead><tr>${th('C#','40px')}${th('Criterion')}${th('Extracted Value','110px')}${th('Threshold','110px')}${th('Source Evidence')}${th('Verdict','100px')}</tr></thead>\n    <tbody>${criterionRows}</tbody>\n  </table>\n</div>`;\n}\n\n// ── Final HTML assembly ──\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Evaluation Report — ${tender.reference_number || tender.id}</title>\n<style>\n  @page { margin: 2cm; }\n  body { font-family: Arial, sans-serif; font-size: 12px; color: #1A1A1A; }\n  h1 { font-size: 18px; color: ${NAVY}; margin-bottom: 4px; }\n  h2 { font-size: 15px; color: ${NAVY}; }\n  table { border-collapse: collapse; width: 100%; }\n  th { background: ${NAVY}; color: #fff; text-align: left; padding: 8px 10px; }\n  td { padding: 7px 10px; border-bottom: 1px solid ${BORDER}; vertical-align: top; }\n</style>\n</head>\n<body>\n\n<!-- LETTERHEAD -->\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-bottom:24px\">\n  <tr>\n    <td style=\"text-align:center;padding:16px;background:${NAVY};color:#ffffff\">\n      <div style=\"font-size:13px;font-weight:bold\">GOVERNMENT OF INDIA — MINISTRY OF HOME AFFAIRS</div>\n      <div style=\"font-size:16px;font-weight:bold;margin-top:4px\">CENTRAL RESERVE POLICE FORCE (CRPF)</div>\n      <div style=\"font-size:11px;margin-top:2px\">TECHNICAL BID EVALUATION REPORT — AI-ASSISTED</div>\n    </td>\n  </tr>\n</table>\n\n<!-- TENDER DETAILS -->\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid ${BORDER};margin-bottom:20px\">\n  <tr><td style=\"width:200px;font-weight:bold;padding:7px 12px;background:#F2F4F7;border-bottom:1px solid ${BORDER}\">Tender Reference</td><td style=\"padding:7px 12px;border-bottom:1px solid ${BORDER}\">${tender.reference_number || '—'}</td><td style=\"width:200px;font-weight:bold;padding:7px 12px;background:#F2F4F7;border-bottom:1px solid ${BORDER}\">Date Generated</td><td style=\"padding:7px 12px;border-bottom:1px solid ${BORDER}\">${new Date(generated_at).toLocaleDateString('en-IN', {day:'2-digit',month:'long',year:'numeric'})}</td></tr>\n  <tr><td style=\"font-weight:bold;padding:7px 12px;background:#F2F4F7\">Name of Work</td><td colspan=\"3\" style=\"padding:7px 12px\">${tender.title || '—'}</td></tr>\n</table>\n\n<!-- NARRATIVE SUMMARY -->\n<h2 style=\"color:${NAVY};font-size:15px;border-bottom:2px solid ${NAVY};padding-bottom:6px\">Evaluation Summary</h2>\n<p style=\"line-height:1.7;margin:10px 0\">${narrative.summary}</p>\n<p style=\"line-height:1.7;margin:10px 0\"><strong>Recommendation:</strong> ${narrative.recommendation}</p>\n\n${masterMatrix}\n\n<!-- OUTCOME TABLE -->\n<h2 style=\"color:${NAVY};font-size:15px;border-bottom:2px solid ${NAVY};padding-bottom:6px;margin-top:28px\">Final Outcome</h2>\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid ${BORDER}\">\n  <thead><tr>${th('Bidder')}${th('Overall')}${th('Failed Criteria')}${th('Action Required')}</tr></thead>\n  <tbody>\n    ${bidderCards.map(b => `<tr>\n      ${td(b.bidder_name, 'font-weight:bold')}\n      ${tdCenter(verdictBadge(b.overall_verdict))}\n      ${td(b.failed_criteria.length ? b.failed_criteria.join(', ') : '—')}\n      ${td(b.overall_verdict === 'ELIGIBLE' ? 'Open financial bid' : b.overall_verdict === 'INELIGIBLE' ? 'Issue rejection letter' : 'Officer review pending')}\n    </tr>`).join('')}\n  </tbody>\n</table>\n\n<!-- PER-BIDDER CARDS -->\n<h2 style=\"color:${NAVY};font-size:15px;border-bottom:2px solid ${NAVY};padding-bottom:6px;margin-top:28px\">Per-Bidder Criterion Detail</h2>\n${bidderSections}\n\n<!-- FOOTER -->\n<div style=\"margin-top:48px;border-top:2px solid ${NAVY};padding-top:16px\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n    <tr>\n      <td style=\"width:50%\">\n        <div style=\"font-size:11px;color:${GRAY}\">Generated by SmartTender AI — ${new Date(generated_at).toISOString()}</div>\n        <div style=\"font-size:11px;color:${GRAY}\">All verdicts subject to officer confirmation. AI is a decision-support tool.</div>\n      </td>\n      <td style=\"width:50%;text-align:right\">\n        <div style=\"font-size:12px;font-weight:bold\">Procurement Officer Signature</div>\n        <div style=\"margin-top:32px;border-top:1px solid #000;width:200px;float:right;text-align:center;padding-top:4px;font-size:11px\">Name / Designation / Date</div>\n      </td>\n    </tr>\n  </table>\n</div>\n\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    tender_id: $('Webhook Trigger').first().json.tender_id,\n    html_content: html,\n    report_metadata: {\n      tender_reference: tender.reference_number || tender.id,\n      generated_at,\n      total_bidders: bidderCards.length,\n      eligible_count: eligible.length,\n      ineligible_count: ineligible.length,\n      pending_count: pending.length\n    }\n  }\n}];"
+      },
+      "id": "node-build-html",
+      "name": "Build HTML Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 460],
+      "notes": "Generates complete government-format HTML report with inline CSS only. WeasyPrint-safe: no flexbox, no grid, no external resources. Includes CRPF letterhead, master matrix, per-bidder cards, signature block."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/v1/webhooks/report-ready",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tender_id: $json.tender_id, html_content: $json.html_content, report_metadata: $json.report_metadata }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-post-report",
+      "name": "POST HTML to FastAPI (PDF Render)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1620, 460],
+      "notes": "FastAPI receives HTML, calls WeasyPrint internally, stores PDF, returns { report_id, download_url }. Timeout 60s — WeasyPrint on complex HTML can take 20-30s."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/v1/audit-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event_type\": \"report_generated\",\n  \"actor\": \"n8n_wf5\",\n  \"object_id\": \"{{ $('Webhook Trigger').first().json.tender_id }}\",\n  \"object_type\": \"tender\",\n  \"detail\": {\n    \"report_id\": \"{{ $json.report_id }}\",\n    \"download_url\": \"{{ $json.download_url }}\",\n    \"eligible_count\": {{ $('Build HTML Report').first().json.report_metadata.eligible_count }},\n    \"ineligible_count\": {{ $('Build HTML Report').first().json.report_metadata.ineligible_count }}\n  },\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "node-audit",
+      "name": "Write Audit Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1860, 460]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          { "node": "Respond Immediately", "type": "main", "index": 0 },
+          { "node": "Fetch Tender Metadata", "type": "main", "index": 0 },
+          { "node": "Fetch All Bidders", "type": "main", "index": 0 },
+          { "node": "Fetch All Criteria", "type": "main", "index": 0 },
+          { "node": "Fetch All Verdicts", "type": "main", "index": 0 },
+          { "node": "Fetch All Evidence", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Tender Metadata": {
+      "main": [[{ "node": "Build Report Data (Deterministic)", "type": "main", "index": 0 }]]
+    },
+    "Fetch All Bidders": {
+      "main": [[{ "node": "Build Report Data (Deterministic)", "type": "main", "index": 0 }]]
+    },
+    "Fetch All Criteria": {
+      "main": [[{ "node": "Build Report Data (Deterministic)", "type": "main", "index": 0 }]]
+    },
+    "Fetch All Verdicts": {
+      "main": [[{ "node": "Build Report Data (Deterministic)", "type": "main", "index": 0 }]]
+    },
+    "Fetch All Evidence": {
+      "main": [[{ "node": "Build Report Data (Deterministic)", "type": "main", "index": 0 }]]
+    },
+    "Build Report Data (Deterministic)": {
+      "main": [[{ "node": "LLM — Narrative Summary Only", "type": "main", "index": 0 }]]
+    },
+    "LLM — Narrative Summary Only": {
+      "main": [[{ "node": "Parse Narrative (With Fallback)", "type": "main", "index": 0 }]]
+    },
+    "Parse Narrative (With Fallback)": {
+      "main": [[{ "node": "Build HTML Report", "type": "main", "index": 0 }]]
+    },
+    "Build HTML Report": {
+      "main": [[{ "node": "POST HTML to FastAPI (PDF Render)", "type": "main", "index": 0 }]]
+    },
+    "POST HTML to FastAPI (PDF Render)": {
+      "main": [[{ "node": "Write Audit Event", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [{ "name": "smarttender" }, { "name": "wf5-report" }],
+  "triggerCount": 0,
+  "updatedAt": "2026-04-23T00:00:00.000Z",
+  "versionId": "v1"
+}
