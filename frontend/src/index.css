@@ -1,0 +1,85 @@
+/* SmartTender AI — Global Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface-900 text-gray-100 font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Glassmorphism card — used everywhere */
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl;
+  }
+
+  /* Primary button with glow effect */
+  .btn-primary {
+    @apply px-6 py-2.5 bg-primary-600 text-white font-semibold rounded-xl
+           hover:bg-primary-500 active:scale-[0.98]
+           transition-all duration-200 ease-out
+           shadow-lg shadow-primary-600/25;
+  }
+
+  /* Danger button */
+  .btn-danger {
+    @apply px-6 py-2.5 bg-danger-600 text-white font-semibold rounded-xl
+           hover:bg-danger-500 active:scale-[0.98]
+           transition-all duration-200 ease-out;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply px-6 py-2.5 text-gray-300 font-medium rounded-xl
+           hover:bg-white/5 hover:text-white
+           transition-all duration-200 ease-out;
+  }
+
+  /* Badge variants */
+  .badge-pass {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+           bg-accent-500/20 text-accent-400 border border-accent-500/30;
+  }
+
+  .badge-fail {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+           bg-danger-500/20 text-danger-400 border border-danger-500/30;
+  }
+
+  .badge-review {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+           bg-warning-500/20 text-warning-400 border border-warning-500/30;
+  }
+
+  /* Input fields */
+  .input-field {
+    @apply w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl
+           text-gray-100 placeholder-gray-500
+           focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50
+           transition-all duration-200;
+  }
+
+  /* Subtle gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-400 via-blue-400 to-accent-400
+           bg-clip-text text-transparent;
+  }
+}
+
+/* Custom scrollbar — dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/20;
+}

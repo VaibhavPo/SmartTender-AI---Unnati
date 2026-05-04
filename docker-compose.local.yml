@@ -1,0 +1,56 @@
+# SmartTender AI — Database-only Docker Compose
+# Only runs PostgreSQL, Redis, Qdrant (no app containers)
+# Use this when running backend/docling/n8n/frontend manually.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smarttender
+      POSTGRES_PASSWORD: smarttender_dev
+      POSTGRES_DB: smarttender
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smarttender -d smarttender"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrantdata:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  qdrantdata:
+    driver: local

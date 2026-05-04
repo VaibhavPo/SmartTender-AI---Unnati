@@ -1,0 +1,444 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary: #0f1419;
+  --bg-secondary: #1a1f2e;
+  --bg-tertiary: #252d3d;
+  --text-primary: #e8eef2;
+  --text-secondary: #a8b2c1;
+  --border-primary: #3a4556;
+  --border-secondary: #2a3142;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:linear-gradient(135deg, #0a0e13 0%, #1a1f2e 100%);color:var(--text-primary);min-height:100vh}
+.wrap{padding:40px;max-width:1400px;margin:0 auto}
+.nav-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border-secondary)}
+.nav-btn{font-size:13px;padding:8px 16px;border-radius:8px;border:1px solid var(--border-secondary);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .2s;font-weight:500}
+.nav-btn:hover{background:var(--bg-tertiary);color:var(--text-primary);border-color:var(--border-primary)}
+.nav-btn.active{background:linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);color:#fff;border-color:transparent}
+.view{display:none}
+.view.active{display:block}
+
+/* ── OVERVIEW ─────────────────────────── */
+.layer-row{display:grid;grid-template-columns:100px 1fr;gap:16px;align-items:start;margin-bottom:32px;padding:24px;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border-secondary);box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.layer-label{font-size:12px;color:var(--text-secondary);text-align:right;padding-top:8px;letter-spacing:.05em;font-weight:600;text-transform:uppercase}
+.layer-boxes{display:flex;gap:12px;flex-wrap:wrap}
+.box{border:1px solid var(--border-secondary);border-radius:10px;padding:12px 14px;font-size:13px;background:var(--bg-tertiary);cursor:pointer;transition:all .2s;min-width:110px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.box:hover{border-color:var(--border-primary);background:var(--bg-primary);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.4)}
+.box .bname{font-size:13px;font-weight:600;color:var(--text-primary)}
+.box .bsub{font-size:11px;color:var(--text-secondary);margin-top:4px}
+.box.blue{border-color:#4a6fa5;background:#1a2a3f}
+.box.blue .bname{color:#60a5ff}
+.box.blue .bsub{color:#7eb3ff}
+.box.teal{border-color:#4a8f7f;background:#1a3a33}
+.box.teal .bname{color:#4dd8c4}
+.box.teal .bsub{color:#6fe8d8}
+.box.purple{border-color:#6b5b95;background:#2a1f3f}
+.box.purple .bname{color:#c4a8ff}
+.box.purple .bsub{color:#d6bfff}
+.box.amber{border-color:#8b6f47;background:#3a2f1f}
+.box.amber .bname{color:#ffa94d}
+.box.amber .bsub{color:#ffb860}
+.box.green{border-color:#6b8f47;background:#2a3a1f}
+.box.green .bname{color:#84d874}
+.box.green .bsub{color:#9ae688}
+.box.gray{border-color:var(--border-secondary);background:var(--bg-tertiary)}
+.box.gray .bname{color:var(--text-primary)}
+.box.gray .bsub{color:var(--text-secondary)}
+.conn-row{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 0;color:var(--text-secondary);font-size:12px;margin:16px 0}
+.arr-line{flex:1;max-width:280px;height:1px;background:linear-gradient(90deg, transparent, var(--border-primary), transparent);position:relative}
+.arr-line::after{content:'';position:absolute;right:-4px;top:-3px;border:3px solid transparent;border-left:5px solid var(--border-primary)}
+.conn-label{font-size:11px;color:var(--text-secondary);background:var(--bg-secondary);padding:0 8px;font-weight:500}
+.divider{height:1px;background:linear-gradient(90deg, transparent, var(--border-secondary), transparent);margin:24px 0}
+
+/* ── FLOW VIEW ────────────────────────── */
+.flow-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;padding:12px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-secondary)}
+.ftab{font-size:12px;padding:6px 14px;border-radius:6px;border:1px solid var(--border-secondary);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .2s;font-weight:500}
+.ftab:hover{background:var(--bg-tertiary);color:var(--text-primary)}
+.ftab.on{background:linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);color:#fff;border-color:transparent}
+.flow-panel{display:none}
+.flow-panel.on{display:block}
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:16px;align-items:flex-start;padding:16px;border-bottom:1px solid var(--border-secondary);background:var(--bg-secondary);margin-bottom:8px;border-radius:8px}
+.step:last-child{border-bottom:none}
+.step-left{display:flex;flex-direction:column;align-items:center;gap:0;width:32px;flex-shrink:0}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.step-line{width:2px;flex:1;min-height:20px;background:var(--border-secondary);margin-top:4px}
+.step-body{flex:1;padding-top:0}
+.step-title{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px}
+.step-desc{font-size:12px;color:var(--text-secondary);line-height:1.6}
+.step-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:6px;margin-top:8px;font-weight:600}
+.badge-n8n{background:rgba(255,165,0,0.15);color:#ffb347}
+.badge-fast{background:rgba(100,150,255,0.15);color:#7eb3ff}
+.badge-react{background:rgba(196,168,255,0.15);color:#c4a8ff}
+.badge-model{background:rgba(132,216,116,0.15);color:#84d874}
+.badge-qdrant{background:rgba(77,216,196,0.15);color:#4dd8c4}
+.warn-box{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);border-radius:6px;padding:10px 12px;margin-top:10px;font-size:12px;color:#ff9999;line-height:1.6}
+
+/* ── SCREENS VIEW ────────────────────── */
+.screen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.screen-card{border:1px solid var(--border-secondary);border-radius:12px;padding:16px;background:var(--bg-secondary);cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.screen-card:hover{border-color:var(--border-primary);background:var(--bg-tertiary);transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.sc-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sc-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sc-name{font-size:14px;font-weight:600;color:var(--text-primary)}
+.sc-calls{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.sc-call{font-size:11px;color:var(--text-secondary);padding:6px 10px;border-radius:6px;background:var(--bg-primary);border-left:2px solid #6366f1;font-family:monospace}
+.sc-nav{font-size:11px;color:var(--text-secondary);margin-top:10px;display:flex;align-items:center;gap:6px}
+.arr-sm{font-size:11px;color:var(--border-primary)}
+
+/* ── DATA VIEW ────────────────────────── */
+.model-grid{display:flex;flex-direction:column;gap:12px}
+.model-row{display:grid;grid-template-columns:180px 1fr 100px;gap:16px;align-items:start;padding:16px;border:1px solid var(--border-secondary);border-radius:10px;background:var(--bg-secondary);box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.model-name{font-size:13px;font-weight:600;color:var(--text-primary)}
+.model-use{font-size:12px;color:var(--text-secondary);line-height:1.5;margin-top:4px}
+.model-size{font-size:12px;color:var(--text-secondary);text-align:right;font-weight:500}
+.model-ram{font-size:11px;color:var(--text-secondary);text-align:right;margin-top:2px}
+.section-head{font-size:12px;font-weight:600;color:var(--text-secondary);letter-spacing:.08em;margin:20px 0 12px;text-transform:uppercase}
+.docker-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.docker-item{font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary);box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+.docker-name{font-weight:600;color:var(--text-primary)}
+.docker-port{color:var(--text-secondary);margin-top:3px;font-size:11px}
+</style>
+<div class="wrap">
+<h2 style="font-size:16px;padding:0 0 20px 0;border-bottom:1px solid var(--border-secondary);margin-bottom:24px;color:var(--text-primary);font-weight:700" class="sr-only">SmartTender AI system visualisation — overview, data flow, screens, and infrastructure</h2>
+
+<div class="nav-bar">
+  <button class="nav-btn active" onclick="show('overview',this)">System overview</button>
+  <button class="nav-btn" onclick="show('flow',this)">n8n pipelines</button>
+  <button class="nav-btn" onclick="show('screens',this)">Screens & navigation</button>
+  <button class="nav-btn" onclick="show('infra',this)">Infrastructure</button>
+</div>
+
+<!-- ══ OVERVIEW ══════════════════════════════════════════════════ -->
+<div class="view active" id="view-overview">
+
+  <div class="layer-row">
+    <div class="layer-label">Officer</div>
+    <div class="layer-boxes">
+      <div class="box purple" onclick="sendPrompt('Tell me about the Upload screen in SmartTender')">
+        <div class="bname">Upload</div><div class="bsub">Tender + bidder docs</div>
+      </div>
+      <div class="box purple" onclick="sendPrompt('Tell me about the Criteria Review screen')">
+        <div class="bname">Criteria review</div><div class="bsub">Confirm extracted rules</div>
+      </div>
+      <div class="box purple" onclick="sendPrompt('Tell me about the Evaluation Dashboard')">
+        <div class="bname">Dashboard</div><div class="bsub">Bidder × criterion matrix</div>
+      </div>
+      <div class="box purple" onclick="sendPrompt('Tell me about the Manual Review Queue')">
+        <div class="bname">Review queue</div><div class="bsub">Ambiguous verdicts</div>
+      </div>
+      <div class="box purple" onclick="sendPrompt('Tell me about Report generation')">
+        <div class="bname">Report</div><div class="bsub">PDF + audit trail</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-row">
+    <div class="arr-line"></div>
+    <span class="conn-label">REST API (React ↔ FastAPI)</span>
+    <div class="arr-line" style="transform:scaleX(-1)"></div>
+  </div>
+
+  <div class="layer-row">
+    <div class="layer-label">FastAPI</div>
+    <div class="layer-boxes">
+      <div class="box blue" onclick="sendPrompt('What does the documents router do in FastAPI?')">
+        <div class="bname">/documents</div><div class="bsub">Ingest, store, serve SDOs</div>
+      </div>
+      <div class="box blue" onclick="sendPrompt('What does the tenders router do?')">
+        <div class="bname">/tenders</div><div class="bsub">Criteria, evaluation state</div>
+      </div>
+      <div class="box blue" onclick="sendPrompt('What does the verdicts router do?')">
+        <div class="bname">/verdicts</div><div class="bsub">Read + write verdicts</div>
+      </div>
+      <div class="box blue" onclick="sendPrompt('What does the audit router do?')">
+        <div class="bname">/audit</div><div class="bsub">Append-only event log</div>
+      </div>
+      <div class="box blue" onclick="sendPrompt('What does the reports router do?')">
+        <div class="bname">/reports</div><div class="bsub">Generate + serve PDFs</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-row">
+    <div class="arr-line"></div>
+    <span class="conn-label">Webhooks (FastAPI → n8n) + Callbacks (n8n → FastAPI)</span>
+    <div class="arr-line" style="transform:scaleX(-1)"></div>
+  </div>
+
+  <div class="layer-row">
+    <div class="layer-label">n8n</div>
+    <div class="layer-boxes">
+      <div class="box amber" onclick="sendPrompt('Explain the Document Ingestion n8n workflow')">
+        <div class="bname">WF-1 Ingestion</div><div class="bsub">OCR → SDO → embed</div>
+      </div>
+      <div class="box amber" onclick="sendPrompt('Explain the Criteria Extraction n8n workflow')">
+        <div class="bname">WF-2 Criteria</div><div class="bsub">Tender → registry</div>
+      </div>
+      <div class="box amber" onclick="sendPrompt('Explain the Evidence Extraction n8n workflow')">
+        <div class="bname">WF-3 Evidence</div><div class="bsub">RAG per bidder × criterion</div>
+      </div>
+      <div class="box amber" onclick="sendPrompt('Explain the Verdict Engine n8n workflow')">
+        <div class="bname">WF-4 Verdict</div><div class="bsub">Rules + LLM reasoning</div>
+      </div>
+      <div class="box amber" onclick="sendPrompt('Explain the Report Generation n8n workflow')">
+        <div class="bname">WF-5 Report</div><div class="bsub">Narrative + structure</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-row">
+    <div class="arr-line"></div>
+    <span class="conn-label">HTTP (OpenAI-compatible API)</span>
+    <div class="arr-line" style="transform:scaleX(-1)"></div>
+  </div>
+
+  <div class="layer-row">
+    <div class="layer-label">Models</div>
+    <div class="layer-boxes">
+      <div class="box green" onclick="sendPrompt('What is mistral-7b-instruct used for in SmartTender?')">
+        <div class="bname">mistral-7b-instruct</div><div class="bsub">Extraction + reasoning</div>
+      </div>
+      <div class="box green" onclick="sendPrompt('What is nomic-embed-text used for?')">
+        <div class="bname">nomic-embed-text</div><div class="bsub">Vector embeddings</div>
+      </div>
+      <div class="box green" onclick="sendPrompt('What is gemma3:4B used for in SmartTender?')">
+        <div class="bname">gemma3:4B</div><div class="bsub">Vision — scans + photos</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-row">
+    <div class="arr-line"></div>
+    <span class="conn-label">HTTP</span>
+    <div class="arr-line" style="transform:scaleX(-1)"></div>
+  </div>
+
+  <div class="layer-row">
+    <div class="layer-label">Storage</div>
+    <div class="layer-boxes">
+      <div class="box teal" onclick="sendPrompt('What does PostgreSQL store in SmartTender?')">
+        <div class="bname">PostgreSQL</div><div class="bsub">SDOs, verdicts, audit log</div>
+      </div>
+      <div class="box teal" onclick="sendPrompt('What does Qdrant store in SmartTender?')">
+        <div class="bname">Qdrant</div><div class="bsub">Embedded document chunks</div>
+      </div>
+      <div class="box teal" onclick="sendPrompt('What does Redis do in SmartTender?')">
+        <div class="bname">Redis</div><div class="bsub">Async job queue</div>
+      </div>
+      <div class="box gray" onclick="sendPrompt('What does Docling do in SmartTender?')">
+        <div class="bname">Docling</div><div class="bsub">OCR microservice</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ FLOW ══════════════════════════════════════════════════════ -->
+<div class="view" id="view-flow">
+<div class="flow-tabs">
+  <button class="ftab on" onclick="showFlow('wf1',this)">WF-1 Ingest</button>
+  <button class="ftab" onclick="showFlow('wf2',this)">WF-2 Criteria</button>
+  <button class="ftab" onclick="showFlow('wf3',this)">WF-3 Evidence</button>
+  <button class="ftab" onclick="showFlow('wf4',this)">WF-4 Verdict</button>
+  <button class="ftab" onclick="showFlow('wf5',this)">WF-5 Report</button>
+</div>
+
+<div class="flow-panel on" id="wf1">
+<div class="steps">
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">1</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Webhook trigger</div><div class="step-desc">FastAPI fires POST to n8n when a file upload is saved. Payload: document_id, file_path, mime_type, bidder_id.</div><span class="step-badge badge-n8n">n8n webhook node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">2</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Format switch</div><div class="step-desc">Switch node routes by mime_type. Native PDF → Docling. Scanned PDF or image → Docling first.</div><span class="step-badge badge-n8n">n8n switch node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">3</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Docling OCR</div><div class="step-desc">HTTP POST to Docling microservice. Returns page blocks with text and per-page confidence scores.</div><span class="step-badge badge-fast">Docling :8001</span>
+  <div class="warn-box">If confidence &lt; 0.70 on any page → route that page to gemma3:4B as base64 image. Merge results back.</div></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">4</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Vision fallback</div><div class="step-desc">Low-confidence pages sent to gemma3:4B via Docker Model Runner OpenAI node. Prompt: extract all text, preserve numbers and dates exactly.</div><span class="step-badge badge-model">gemma3:4B vision</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">5</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Assemble SDO</div><div class="step-desc">Code node merges all page blocks into one Structured Document Object JSON. Stamps source model per block.</div><span class="step-badge badge-n8n">code node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">6</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Embed each block</div><div class="step-desc">Split In Batches → each block text sent to nomic-embed-text via OpenAI embeddings node. Returns 768-dim vector.</div><span class="step-badge badge-model">nomic-embed-text</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">7</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Upsert to Qdrant</div><div class="step-desc">HTTP PUT to Qdrant /collections/documents/points. Payload: vector + metadata {document_id, bidder_id, tender_id, page_num, block_type, text}.</div><span class="step-badge badge-qdrant">Qdrant :6333</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(196,168,255,0.2);color:#c4a8ff">8</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">POST SDO back + audit</div><div class="step-desc">HTTP POST to FastAPI /documents/{id}/sdo. Then POST /audit-events with ingestion_complete event.</div><span class="step-badge badge-fast">FastAPI callback</span></div></div>
+</div>
+</div>
+
+<div class="flow-panel" id="wf2">
+<div class="steps">
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,165,0,0.2);color:#ffb347">1</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Webhook trigger</div><div class="step-desc">Officer clicks "Extract Criteria". FastAPI fires POST with tender_id, document_id.</div><span class="step-badge badge-n8n">n8n webhook</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,165,0,0.2);color:#ffb347">2</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Fetch tender SDO</div><div class="step-desc">GET /documents/{id}/sdo from FastAPI. All page blocks returned.</div><span class="step-badge badge-fast">FastAPI GET</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,165,0,0.2);color:#ffb347">3</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Flatten + trim</div><div class="step-desc">Code node concatenates block texts. If over 12,000 tokens, prioritise sections with "eligibility", "shall", "must", "criteria" keywords.</div><span class="step-badge badge-n8n">code node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,165,0,0.2);color:#ffb347">4</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Call mistral-7b</div><div class="step-desc">OpenAI node → model-runner.docker.internal. System prompt enforces JSON-only array output. User message: full tender text.</div><span class="step-badge badge-model">mistral-7b-instruct</span>
+  <div class="warn-box">Model will wrap JSON in ```json fences. Code node must strip fences before JSON.parse — every time, no exceptions.</div></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,165,0,0.2);color:#ffb347">5</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Parse + validate</div><div class="step-desc">Code node strips fences, parses JSON, validates each criterion has required fields. On failure → retry once with stricter prompt.</div><span class="step-badge badge-n8n">code + IF node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,165,0,0.2);color:#ffb347">6</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">POST registry + audit</div><div class="step-desc">POST CriterionRegistry to FastAPI /tenders/{id}/criteria. UI shows criteria list to officer for review. POST audit event.</div><span class="step-badge badge-fast">FastAPI callback</span></div></div>
+</div>
+</div>
+
+<div class="flow-panel" id="wf3">
+<div class="steps">
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">1</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Webhook trigger</div><div class="step-desc">Officer confirms criteria list. FastAPI fires POST with tender_id, bidder_ids[], criteria[].</div><span class="step-badge badge-n8n">n8n webhook</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">2</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Outer loop — bidders</div><div class="step-desc">Split In Batches node iterates over each bidder_id one at a time.</div><span class="step-badge badge-n8n">split in batches</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">3</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Inner loop — criteria</div><div class="step-desc">Nested Split In Batches over each criterion. For each pair: embed criterion text via nomic-embed-text.</div><span class="step-badge badge-model">nomic-embed-text</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">4</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Qdrant semantic search</div><div class="step-desc">HTTP POST to Qdrant search endpoint. Filter: bidder_id = current. Limit: 5 chunks. Returns top-5 most relevant text chunks with metadata.</div><span class="step-badge badge-qdrant">Qdrant search</span>
+  <div class="warn-box">Embed criterion.name + criterion.description + criterion.source_text together — not description alone. Richer query = better chunk retrieval.</div></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">5</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Call mistral-7b for extraction</div><div class="step-desc">Grounded extraction prompt: return only what is verbatim in the chunks, null if not found. Must return EvidenceObject JSON.</div><span class="step-badge badge-model">mistral-7b-instruct</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">6</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Parse EvidenceObject</div><div class="step-desc">Strip fences, parse JSON. Validate: value, unit, quoted_text, source_chunk_ref, confidence. null value is valid (means not found).</div><span class="step-badge badge-n8n">code node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(132,216,116,0.2);color:#84d874">7</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">POST evidence + trigger WF-4</div><div class="step-desc">POST each EvidenceObject to FastAPI /evidence. After all pairs done → POST to WF-4 webhook to start verdict engine.</div><span class="step-badge badge-fast">FastAPI + WF-4 trigger</span></div></div>
+</div>
+</div>
+
+<div class="flow-panel" id="wf4">
+<div class="steps">
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,107,107,0.2);color:#ff9999">1</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Fetch all evidence</div><div class="step-desc">GET /tenders/{id}/evidence-summary from FastAPI. Returns all EvidenceObjects + CriteriaRegistry for this tender.</div><span class="step-badge badge-fast">FastAPI GET</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,107,107,0.2);color:#ff9999">2</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Check for missing evidence</div><div class="step-desc">IF evidence.value == null → MANUAL_REVIEW immediately. Reason: "Evidence not found." Skip LLM entirely for missing docs.</div><span class="step-badge badge-n8n">IF node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,107,107,0.2);color:#ff9999">3</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Rule layer — no LLM</div><div class="step-desc">Pure IF nodes: financial → value ≥ threshold? Certification → expiry_date &gt; submission_date? Compliance → status == "active"? If clear answer AND confidence ≥ 0.80 → verdict set, skip LLM.</div><span class="step-badge badge-n8n">IF nodes (pure logic)</span>
+  <div class="warn-box">Always normalise dates to ISO 8601 in WF-3 before they reach here. Date comparison on raw strings will silently give wrong results.</div></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,107,107,0.2);color:#ff9999">4</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">LLM reasoning (ambiguous only)</div><div class="step-desc">Technical/semantic criteria always go here. Ambiguous rules or confidence &lt; 0.80 go here. Verdict reasoning prompt: return ELIGIBLE / INELIGIBLE / MANUAL_REVIEW + reason JSON only.</div><span class="step-badge badge-model">mistral-7b-instruct</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,107,107,0.2);color:#ff9999">5</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Confidence gate</div><div class="step-desc">Code node: if LLM confidence &lt; 0.75 OR response contains hedging words ("unclear", "possibly", "might", "depends") → override to MANUAL_REVIEW.</div><span class="step-badge badge-n8n">code node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(255,107,107,0.2);color:#ff9999">6</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">POST verdict + audit</div><div class="step-desc">POST VerdictRecord to FastAPI /verdicts. FastAPI writes append-only to verdict_events. POST AuditEvent per verdict.</div><span class="step-badge badge-fast">FastAPI append-only</span></div></div>
+</div>
+</div>
+
+<div class="flow-panel" id="wf5">
+<div class="steps">
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(77,216,196,0.2);color:#4dd8c4">1</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Webhook trigger</div><div class="step-desc">Officer clicks "Generate Report". FastAPI fires POST with tender_id.</div><span class="step-badge badge-n8n">n8n webhook</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(77,216,196,0.2);color:#4dd8c4">2</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Fetch full evaluation</div><div class="step-desc">GET /tenders/{id}/full-evaluation. Returns tender metadata + criteria + all verdicts + all evidence objects in one response.</div><span class="step-badge badge-fast">FastAPI GET</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(77,216,196,0.2);color:#4dd8c4">3</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Build report structure</div><div class="step-desc">Code node organises data: eligible_bidders[], ineligible_bidders[], manual_pending[], per-bidder criterion cards. Verdict cards are built deterministically here — not by LLM.</div><span class="step-badge badge-n8n">code node</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(77,216,196,0.2);color:#4dd8c4">4</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">LLM — narrative only</div><div class="step-desc">mistral-7b writes the summary section only. Tables and verdict cards come from deterministic code, not the model. Keeps factual accuracy high.</div><span class="step-badge badge-model">mistral-7b-instruct</span></div></div>
+  <div class="step"><div class="step-left"><div class="step-num" style="background:rgba(77,216,196,0.2);color:#4dd8c4">5</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">POST report JSON</div><div class="step-desc">POST merged report JSON to FastAPI /reports. FastAPI renders to PDF via WeasyPrint. Returns download URL to frontend.</div><span class="step-badge badge-fast">FastAPI → WeasyPrint → PDF</span></div></div>
+</div>
+</div>
+</div>
+
+<!-- ══ SCREENS ════════════════════════════════════════════════════ -->
+<div class="view" id="view-screens">
+<div class="screen-grid">
+  <div class="screen-card" onclick="sendPrompt('Show me what the Upload screen should look like in SmartTender')">
+    <div class="sc-header"><div class="sc-icon" style="background:#EEEDFE">📤</div><div class="sc-name">Upload</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">Two drop zones — tender doc and bidder folders. Format validation on drop. Progress per file.</div>
+    <div class="sc-calls">
+      <div class="sc-call">POST /documents (multipart)</div>
+      <div class="sc-call">GET /documents/{id}/status</div>
+    </div>
+    <div class="sc-nav"><span>→</span> After all uploads complete</div>
+  </div>
+  <div class="screen-card" onclick="sendPrompt('Show me what the Criteria Review screen should look like')">
+    <div class="sc-header"><div class="sc-icon" style="background:#FAEEDA">📋</div><div class="sc-name">Criteria review</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">Editable criterion cards. Officer can correct type, threshold, mandatory flag. Confirm button starts WF-3.</div>
+    <div class="sc-calls">
+      <div class="sc-call">POST /tenders/{id}/extract-criteria</div>
+      <div class="sc-call">GET /tenders/{id}/criteria</div>
+      <div class="sc-call">PATCH /criteria/{id}</div>
+      <div class="sc-call">POST /tenders/{id}/confirm-criteria</div>
+    </div>
+    <div class="sc-nav"><span>→</span> After officer confirms criteria</div>
+  </div>
+  <div class="screen-card" onclick="sendPrompt('Show me what the Evaluation Dashboard should look like')">
+    <div class="sc-header"><div class="sc-icon" style="background:#EAF3DE">📊</div><div class="sc-name">Dashboard</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">Bidders as rows, criteria as columns. Green / red / amber chips. Click any cell → criterion card with evidence + source quote.</div>
+    <div class="sc-calls">
+      <div class="sc-call">GET /tenders/{id}/verdicts</div>
+      <div class="sc-call">GET /verdicts/{id}/evidence</div>
+    </div>
+    <div class="sc-nav"><span>→</span> Click amber chip → review queue</div>
+  </div>
+  <div class="screen-card" onclick="sendPrompt('Show me what the Manual Review Queue should look like')">
+    <div class="sc-header"><div class="sc-icon" style="background:#FCEBEB">🔎</div><div class="sc-name">Review queue</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">One card per MANUAL_REVIEW item. Escalation reason, confidence, side-by-side doc viewer with highlighted passage. Officer picks: Eligible / Ineligible / Request clarification.</div>
+    <div class="sc-calls">
+      <div class="sc-call">GET /verdicts?status=MANUAL_REVIEW</div>
+      <div class="sc-call">GET /documents/{id}/page/{n}</div>
+      <div class="sc-call">PATCH /verdicts/{id} (officer decision)</div>
+      <div class="sc-call">POST /audit-events (override)</div>
+    </div>
+    <div class="sc-nav"><span>→</span> All reviews done → generate report</div>
+  </div>
+  <div class="screen-card" onclick="sendPrompt('Show me what the Report screen should look like')">
+    <div class="sc-header"><div class="sc-icon" style="background:#E1F5EE">📄</div><div class="sc-name">Report</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">Summary matrix, per-bidder verdict cards, officer sign-off block. Download PDF button. Audit trail summary.</div>
+    <div class="sc-calls">
+      <div class="sc-call">POST /reports (trigger WF-5)</div>
+      <div class="sc-call">GET /reports/{id}/download</div>
+      <div class="sc-call">GET /audit-events?tender_id=</div>
+    </div>
+    <div class="sc-nav"><span>→</span> Final screen</div>
+  </div>
+</div>
+
+<div class="divider" style="margin:20px 0"></div>
+<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;letter-spacing:.06em;text-transform:uppercase">NAVIGATION FLOW</div>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  <div style="font-size:12px;padding:8px 14px;border-radius:6px;background:rgba(196,168,255,0.2);border:1px solid rgba(196,168,255,0.5);color:#c4a8ff;font-weight:600">Upload</div>
+  <div style="color:var(--text-secondary);font-size:11px">ingestion done</div>
+  <div style="color:var(--border-primary)">→</div>
+  <div style="font-size:12px;padding:8px 14px;border-radius:6px;background:rgba(255,165,0,0.2);border:1px solid rgba(255,165,0,0.5);color:#ffb347;font-weight:600">Criteria review</div>
+  <div style="color:var(--text-secondary);font-size:11px">confirmed</div>
+  <div style="color:var(--border-primary)">→</div>
+  <div style="font-size:12px;padding:8px 14px;border-radius:6px;background:rgba(132,216,116,0.2);border:1px solid rgba(132,216,116,0.5);color:#84d874;font-weight:600">Dashboard</div>
+  <div style="color:var(--text-secondary);font-size:11px">amber cell</div>
+  <div style="color:var(--border-primary)">→</div>
+  <div style="font-size:12px;padding:8px 14px;border-radius:6px;background:rgba(255,107,107,0.2);border:1px solid rgba(255,107,107,0.5);color:#ff9999;font-weight:600">Review queue</div>
+  <div style="color:var(--text-secondary);font-size:11px">all done</div>
+  <div style="color:var(--border-primary)">→</div>
+  <div style="font-size:12px;padding:8px 14px;border-radius:6px;background:rgba(77,216,196,0.2);border:1px solid rgba(77,216,196,0.5);color:#4dd8c4;font-weight:600">Report</div>
+</div>
+</div>
+
+<!-- ══ INFRA ══════════════════════════════════════════════════════ -->
+<div class="view" id="view-infra">
+<div class="section-head">DOCKER COMPOSE SERVICES</div>
+<div class="docker-list">
+  <div class="docker-item"><div class="docker-name">postgres:16</div><div class="docker-port">:5432 · SDOs, verdicts, audit log</div></div>
+  <div class="docker-item"><div class="docker-name">redis:7-alpine</div><div class="docker-port">:6379 · Async job queue</div></div>
+  <div class="docker-item"><div class="docker-name">ghcr.io/qdrant/qdrant</div><div class="docker-port">:6333 · Vector store</div></div>
+  <div class="docker-item"><div class="docker-name">n8nio/n8n</div><div class="docker-port">:5678 · Workflow orchestration</div></div>
+  <div class="docker-item"><div class="docker-name">docling (build local)</div><div class="docker-port">:8001 · OCR microservice</div></div>
+  <div class="docker-item"><div class="docker-name">backend (build local)</div><div class="docker-port">:8000 · FastAPI</div></div>
+</div>
+
+<div class="section-head">DOCKER MODEL RUNNER — pull once, not in compose</div>
+<div class="model-grid">
+  <div class="model-row">
+    <div><div class="model-name">ai/mistral-7b-instruct-q4</div><div class="model-use">Criteria extraction · Evidence extraction · Verdict reasoning</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">OpenAI node in n8n, base URL: model-runner.docker.internal/engines/llama.cpp/v1</div>
+    <div><div class="model-size">~4.1 GB</div><div class="model-ram">~4.5 GB RAM</div></div>
+  </div>
+  <div class="model-row">
+    <div><div class="model-name">ai/nomic-embed-text</div><div class="model-use">Text embeddings for Qdrant chunks</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">OpenAI embeddings node in n8n — same base URL</div>
+    <div><div class="model-size">~270 MB</div><div class="model-ram">~0.5 GB RAM</div></div>
+  </div>
+  <div class="model-row">
+    <div><div class="model-name">ai/gemma3:4B</div><div class="model-use">Vision fallback — certificate photos, low-quality scans</div></div>
+    <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.5">OpenAI vision node in n8n, base64 image in content array</div>
+    <div><div class="model-size">~3.3 GB</div><div class="model-ram">~3.5 GB RAM</div></div>
+  </div>
+</div>
+
+<div style="margin-top:16px;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,107,107,0.3);background:rgba(255,107,107,0.08);font-size:12px;color:#ff9999;line-height:1.7;font-weight:500">
+  Total RAM when all three loaded simultaneously: ~8.5 GB + OS + compose overhead (~3–4 GB) = 12–13 GB minimum. Recommended: 16 GB machine. On 8 GB: do not load gemma3 unless the vision fallback is triggered — Docker Model Runner unloads idle models automatically.
+</div>
+
+<div class="section-head" style="margin-top:20px">PORTS AT A GLANCE</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+  <div style="font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary)"><span style="font-weight:600;color:var(--text-primary)">:8000</span><br><span style="color:var(--text-secondary);font-size:11px">FastAPI backend</span></div>
+  <div style="font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary)"><span style="font-weight:600;color:var(--text-primary)">:5678</span><br><span style="color:var(--text-secondary);font-size:11px">n8n UI</span></div>
+  <div style="font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary)"><span style="font-weight:600;color:var(--text-primary)">:6333</span><br><span style="color:var(--text-secondary);font-size:11px">Qdrant</span></div>
+  <div style="font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary)"><span style="font-weight:600;color:var(--text-primary)">:5432</span><br><span style="color:var(--text-secondary);font-size:11px">PostgreSQL</span></div>
+  <div style="font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary)"><span style="font-weight:600;color:var(--text-primary)">:6379</span><br><span style="color:var(--text-secondary);font-size:11px">Redis</span></div>
+  <div style="font-size:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-secondary);background:var(--bg-secondary)"><span style="font-weight:600;color:var(--text-primary)">:8001</span><br><span style="color:var(--text-secondary);font-size:11px">Docling OCR</span></div>
+</div>
+</div>
+
+</div>
+<script>
+function show(id,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+function showFlow(id,btn){
+  document.querySelectorAll('.flow-panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  btn.classList.add('on');
+}
+</script>

@@ -1,0 +1,8 @@
+Extract all evaluation criteria from the following tender document text. Return a JSON array as specified in your instructions.
+
+TENDER DOCUMENT TEXT:
+---
+{{tender_text}}
+---
+
+Return the JSON array now. No other text.

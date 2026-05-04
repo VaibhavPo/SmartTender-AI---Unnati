@@ -1,0 +1,18 @@
+Evaluate whether the bidder meets this criterion:
+
+CRITERION:
+Name: {{criterion_name}}
+Description: {{criterion_description}}
+Type: {{criterion_type}}
+Threshold: {{threshold_value}} {{unit}}
+
+EXTRACTED EVIDENCE:
+Value: {{extracted_value}}
+Source Text: "{{source_text}}"
+Found on Pages: {{source_pages}}
+Extraction Confidence: {{evidence_confidence}}
+
+REASON FOR AMBIGUITY:
+{{ambiguity_reason}}
+
+Give your verdict now. Return ONLY the JSON object.

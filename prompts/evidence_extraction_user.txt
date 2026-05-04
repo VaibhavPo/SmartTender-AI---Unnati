@@ -1,0 +1,14 @@
+Find evidence for the following criterion in the bidder's document chunks below.
+
+CRITERION:
+Name: {{criterion_name}}
+Description: {{criterion_description}}
+Type: {{criterion_type}}
+Threshold: {{threshold_value}} {{unit}}
+
+BIDDER DOCUMENT CHUNKS (retrieved by relevance):
+---
+{{context_chunks}}
+---
+
+Extract the evidence now. Return ONLY the JSON object as specified. If the information is not found in any chunk, set extracted_value to null.

@@ -1,0 +1,27 @@
+# SmartTender AI — Backend Dependencies
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+alembic==1.14.1
+
+# File handling
+python-multipart==0.0.18
+pymupdf==1.25.3
+
+# HTTP client — for calling n8n webhooks and health checks
+httpx==0.28.1
+
+# PDF report generation
+weasyprint==63.1
+
+# Redis — caching and rate limiting
+redis==5.2.1
+
+# Utilities
+python-dateutil==2.9.0

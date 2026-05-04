@@ -1,0 +1,20 @@
+Generate an evaluation report for the following tender:
+
+TENDER:
+Name: {{tender_name}}
+Reference: {{tender_reference}}
+Deadline: {{submission_deadline}}
+
+BIDDERS:
+{{bidders_json}}
+
+CRITERIA:
+{{criteria_json}}
+
+VERDICTS:
+{{verdicts_json}}
+
+EVIDENCE SUMMARY:
+{{evidence_summary_json}}
+
+Generate the report now. Return ONLY the JSON object as specified.
