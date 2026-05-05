@@ -70,6 +70,26 @@ export default function CriteriaReviewPage() {
     }
   };
 
+  const getErrorText = (error) => {
+    if (!error) return "Unknown error";
+    if (typeof error === "string") return error;
+    if (error.message) return error.message;
+    if (error.detail) return error.detail;
+    if (error.response?.data?.detail) return error.response.data.detail;
+    if (error.response?.data?.message) return error.response.data.message;
+    return JSON.stringify(error);
+  };
+
+  const handleDeleteCriterion = async (criterionId) => {
+    if (!confirm("Are you sure you want to delete this criterion?")) return;
+    try {
+      await criteriaApi.delete(criterionId);
+      setCriteria((prev) => prev.filter((c) => c.id !== criterionId));
+    } catch (err) {
+      alert(`Delete failed: ${getErrorText(err)}`);
+    }
+  };
+
   const handleConfirm = async () => {
     if (criteria.length === 0 || bidders.length === 0) {
       alert("Need at least one criterion and one bidder.");
@@ -153,6 +173,7 @@ export default function CriteriaReviewPage() {
               criterion={criterion}
               index={index}
               onUpdate={handleUpdateCriterion}
+              onDelete={handleDeleteCriterion}
             />
           ))}
         </div>

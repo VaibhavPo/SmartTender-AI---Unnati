@@ -1,0 +1,733 @@
+{
+  "name": "WF-3 — Evidence Extraction",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evidence-extraction",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c7ca910e-59b0-4060-bf50-9feae7e2cc9e",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        64
+      ],
+      "webhookId": "smarttender-evidence-extract"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, tender_id: $json.tender_id, bidder_count: $json.bidder_ids.length, status: 'processing' }) }}",
+        "options": {}
+      },
+      "id": "2e0a0653-1735-4994-99f7-62e95e7f89a7",
+      "name": "Respond Immediately",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1/criteria?tender_id={{ $json.body.tender_id }}&status=confirmed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "f3aee97b-e4c4-4d42-9a1d-9ab1b0a4143e",
+      "name": "Fetch Confirmed Criteria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        64
+      ],
+      "notes": "Fetches only status=confirmed criteria — WF-3 must not run on unreviewed criteria. FastAPI should 400 if any criteria are still pending_review."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build every bidder × criterion pair as a flat list of work items.\n// Each item is one unit of work: embed this criterion, search for this bidder, extract evidence.\n\n\nconst bidder_ids = $('Webhook Trigger').first().json.body.bidder_ids || [];\nconst tender_id = $('Webhook Trigger').first().json.body.tender_id;\n\n// Criteria come back as array from FastAPI\nconst criteria = $input.all().map(item => item.json);\n\nif (criteria.length === 0) {\n  throw new Error('No confirmed criteria found for this tender. Officer must confirm criteria before evidence extraction.');\n}\n\nif (bidder_ids.length === 0) {\n  throw new Error('No bidder_ids provided in webhook payload.');\n}\n\nconst pairs = [];\nfor (const bidder_id of bidder_ids) {\n  for (const criterion of criteria) {\n    pairs.push({\n      tender_id,\n      bidder_id,\n      criterion_id: criterion.id,\n      criterion_name: criterion.name,\n      criterion_type: criterion.type,\n      criterion_description: criterion.description,\n      threshold_value: criterion.threshold_value ?? null,\n      threshold_unit: criterion.threshold_unit ?? null,\n      mandatory: criterion.mandatory,\n      source_section: criterion.source_section,\n      // Richer embedding query: name + description + source_text together\n      embedding_query: [\n        criterion.name,\n        criterion.description,\n        criterion.source_text || ''\n      ].filter(Boolean).join('. ')\n    });\n  }\n}\n\n// Log the matrix size for audit\nconsole.log(`Built ${pairs.length} pairs (${bidder_ids.length} bidders × ${criteria.length} criteria)`);\n\nreturn pairs.map(p => ({ json: p }));"
+      },
+      "id": "f7661a59-4058-4773-927b-43f8599db831",
+      "name": "Build Bidder × Criterion Matrix",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        64
+      ],
+      "notes": "Outputs one item per bidder×criterion pair. 5 bidders × 5 criteria = 25 items. Each item carries everything needed for the extraction loop."
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "f8ca2754-8817-43a8-9603-db2e470425d1",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        720,
+        64
+      ],
+      "notes": "Batch size 1 = sequential LLM calls. Prevents overwhelming the local model runner. For demo with few pairs, this is fine. Increase to 2-3 only if model runner has GPU."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:12434/v1/embeddings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"ai/nomic-embed-text-v1.5\",\n  \"input\": \"{{ $json.embedding_query }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "5c82a9b7-e96a-4097-bcb4-eb1e7c2b13b3",
+      "name": "Embed Criterion Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        944,
+        -48
+      ],
+      "notes": "Uses embedding_query = name + description + source_text combined. Richer query = better Qdrant retrieval than description alone."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Attach the embedding vector back to the pair data\n// The HTTP response is the embedding result; we need to merge it\n// with the original pair data from the Split In Batches node\n\nconst embeddingResponse = $input.first().json;\nconst vector = embeddingResponse.data?.[0]?.embedding;\n\nif (!vector || vector.length === 0) {\n  throw new Error(`Embedding failed for criterion: ${embeddingResponse.criterion_id || 'unknown'}. nomic-embed-text returned no vector.`);\n}\n\n// Get the current pair from the batch\nconst pair = $('Split In Batches').first().json;\n\nreturn [{\n  json: {\n    ...pair,\n    vector\n  }\n}];"
+      },
+      "id": "19e0eaea-7700-4994-a059-b993b509425d",
+      "name": "Attach Embedding to Pair",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        -48
+      ],
+      "notes": "Merges the 768-dim vector back onto the pair object. The HTTP Request node only returns the embedding response, so we manually merge with the pair context."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:6333/collections/tender_docs/points/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"vector\": {{ JSON.stringify($json.vector) }},\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"bidder_id\",\n        \"match\": { \"value\": \"{{ $json.bidder_id }}\" }\n      }\n    ]\n  },\n  \"limit\": 5,\n  \"with_payload\": true,\n  \"score_threshold\": 0.3\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "b98d0163-f806-412c-a515-09d1edd02581",
+      "name": "Search Qdrant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1392,
+        -48
+      ],
+      "notes": "score_threshold: 0.3 filters very irrelevant chunks. bidder_id filter is case-sensitive — must match exactly what was upserted in WF-1. Returns top-5 chunks."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Qdrant results with the pair context and build the extraction prompt.\n// If Qdrant returns empty results, we still proceed — evidence will be null.\n\nconst qdrantResponse = $input.first().json;\nconst searchResults = qdrantResponse.result || [];\nconst pair = $('Split In Batches').first().json;\n\n// Format chunks as numbered context blocks for the LLM\nconst chunks = searchResults.map((r, i) => {\n  const p = r.payload || {};\n  const score = r.score ? ` (relevance: ${r.score.toFixed(2)})` : '';\n  return `[Chunk ${i + 1}, Page ${p.page_num || '?'}${score}]\\n${p.text || ''}`;\n}).join('\\n\\n---\\n\\n');\n\nconst noChunksFound = searchResults.length === 0;\n\nreturn [{\n  json: {\n    ...pair,\n    context_chunks: chunks,\n    chunk_count: searchResults.length,\n    no_chunks_found: noChunksFound,\n    // Keep raw results for source citation\n    raw_search_results: searchResults.map(r => ({\n      score: r.score,\n      page_num: r.payload?.page_num,\n      block_type: r.payload?.block_type,\n      text_preview: (r.payload?.text || '').substring(0, 100)\n    }))\n  }\n}];"
+      },
+      "id": "90c9c37a-ed13-4f01-87e7-24ee7f74d656",
+      "name": "Build Extraction Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -48
+      ],
+      "notes": "Formats top-5 chunks as numbered context blocks. Includes relevance scores so the LLM can weight them. Sets no_chunks_found flag for the IF node."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-no-chunks",
+              "leftValue": "={{ $json.no_chunks_found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1938045e-8cd8-4c80-b2e6-8b489829407b",
+      "name": "Any Chunks Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -48
+      ],
+      "notes": "If Qdrant returned nothing, skip the LLM call entirely. Set evidence as not_found with reason. This avoids wasting a 30s LLM call on an empty prompt."
+    },
+    {
+      "parameters": {
+        "jsCode": "// No chunks found — create a not_found EvidenceObject immediately\n// without calling the LLM. Saves time and avoids hallucination risk.\nconst pair = $input.first().json;\n\nreturn [{\n  json: {\n    tender_id: pair.tender_id,\n    bidder_id: pair.bidder_id,\n    criterion_id: pair.criterion_id,\n    criterion_name: pair.criterion_name,\n    value: null,\n    unit: null,\n    source_chunk_ref: null,\n    source_page: null,\n    quoted_text: null,\n    confidence: 0.0,\n    not_found_reason: 'No relevant document chunks found in Qdrant for this bidder. Document may not have been ingested yet, or relevant section is absent from submission.',\n    extraction_method: 'qdrant_empty',\n    extracted_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "900a7c29-34fc-4f3f-802f-a36f5fd5db72",
+      "name": "Create Not-Found Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        -144
+      ],
+      "notes": "Generates a definitive not_found EvidenceObject. WF-4 will route this straight to MANUAL_REVIEW."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:12434/engines/llama.cpp/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.llm_body }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "5973172b-21b7-470b-910b-9c2f7da7b1c1",
+      "name": "Extract Evidence (Mistral)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2096,
+        32
+      ],
+      "notes": "Temperature 0.0 for maximum determinism. Max tokens 800 — evidence object is small. System prompt enforces verbatim quoting and null-on-not-found."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the LLM evidence response into a validated EvidenceObject.\n// Merge with pair metadata for the complete record.\n\nconst llmResponse = $input.first().json;\nconst pair = $('Split In Batches').first().json;\n\nlet raw = llmResponse.choices?.[0]?.message?.content || '';\n\n// Strip fences\nraw = raw.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/i, '').trim();\n\n// Find object boundaries\nconst objStart = raw.indexOf('{');\nconst objEnd = raw.lastIndexOf('}');\n\nif (objStart === -1 || objEnd === -1) {\n  // Can't parse at all — treat as not_found\n  return [{ json: {\n    tender_id: pair.tender_id,\n    bidder_id: pair.bidder_id,\n    criterion_id: pair.criterion_id,\n    criterion_name: pair.criterion_name,\n    value: null,\n    unit: null,\n    source_chunk_ref: null,\n    source_page: null,\n    quoted_text: null,\n    confidence: 0.0,\n    not_found_reason: 'LLM response could not be parsed as JSON',\n    extraction_method: 'llm_parse_failed',\n    raw_response: raw.substring(0, 200),\n    extracted_at: new Date().toISOString()\n  }}];\n}\n\nraw = raw.substring(objStart, objEnd + 1);\n// Fix trailing commas\nraw = raw.replace(/,\\s*([\\]\\}])/g, '$1');\n\nlet evidence;\ntry {\n  evidence = JSON.parse(raw);\n} catch (e) {\n  evidence = {\n    value: null,\n    unit: null,\n    source_chunk_ref: null,\n    source_page: null,\n    quoted_text: null,\n    confidence: 0.0,\n    not_found_reason: `JSON parse error: ${e.message}`\n  };\n}\n\n// Normalise value: convert string numbers to float\nif (typeof evidence.value === 'string') {\n  const cleaned = evidence.value.replace(/[^0-9.]/g, '');\n  evidence.value = cleaned ? parseFloat(cleaned) : null;\n}\n\n// Clamp confidence to [0, 1]\nif (typeof evidence.confidence === 'number') {\n  evidence.confidence = Math.min(1, Math.max(0, evidence.confidence));\n}\n\nreturn [{\n  json: {\n    tender_id: pair.tender_id,\n    bidder_id: pair.bidder_id,\n    criterion_id: pair.criterion_id,\n    criterion_name: pair.criterion_name,\n    criterion_type: pair.criterion_type,\n    threshold_value: pair.threshold_value,\n    threshold_unit: pair.threshold_unit,\n    // Evidence fields from LLM\n    value: evidence.value ?? null,\n    unit: evidence.unit ?? null,\n    source_chunk_ref: evidence.source_chunk_ref ?? null,\n    source_page: evidence.source_page ?? null,\n    quoted_text: evidence.quoted_text ?? null,\n    confidence: evidence.confidence ?? 0.0,\n    not_found_reason: evidence.not_found_reason ?? null,\n    extraction_method: 'llm_mistral',\n    extracted_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "1a3117d9-4023-457f-9ab3-11cc4e898549",
+      "name": "Parse Evidence JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        32
+      ],
+      "notes": "Strips fences, isolates object, fixes trailing commas. Normalises string values to float. Clamps confidence. On any parse failure, returns not_found rather than crashing."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/webhooks/evidence-extracted",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "e57fdd8c-e7e4-40b6-b9dd-5e207028369a",
+      "name": "POST Evidence to FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2592,
+        -144
+      ],
+      "notes": "Posts one EvidenceObject per pair. FastAPI stores to evidence table. Sends back to Split In Batches to process next pair."
+    },
+    {
+      "parameters": {},
+      "id": "4a248674-9cec-4eff-bb95-43b62436083b",
+      "name": "Back to Split In Batches",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2624,
+        352
+      ],
+      "notes": "NoOp connector — routes back into the Split In Batches loop. When Split In Batches has no more items, it routes to the 'done' output (index 1) which triggers the completion check."
+    },
+    {
+      "parameters": {
+        "jsCode": "// All pairs have been processed.\n// Count results and check if any evidence was found at all.\nconst webhookData = $('Webhook Trigger').first().json.body;\n\nreturn [{\n  json: {\n    tender_id: webhookData.tender_id,\n    bidder_ids: webhookData.bidder_ids,\n    status: 'evidence_extraction_complete',\n    completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "d2db48be-9d71-4d42-9156-535f97416cf1",
+      "name": "Loop Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        320
+      ],
+      "notes": "Fires only when Split In Batches exhausts all pairs (done output). Assembles the completion payload to trigger WF-4."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/audit-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Loop Complete').item.json.tender_id }}\",\n  \"event_type\": \"evidence_extraction_complete\",\n  \"actor\": \"n8n_wf3\",\n  \"entity_type\": \"tender\",\n  \"entity_id\": \"{{ $('Loop Complete').item.json.tender_id }}\",\n  \"detail\": \"Extraction completed for {{ $('Loop Complete').item.json.bidder_ids.length }} bidder(s): {{ $('Loop Complete').item.json.bidder_ids.join(', ') }} at {{ $('Loop Complete').item.json.completed_at }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "f1f14969-fcc1-4f25-89d6-3dad04d9d4f7",
+      "name": "Write Audit Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3136,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/verdict-engine",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Loop Complete').item.json.tender_id }}\",\n  \"bidder_ids\": {{ JSON.stringify($('Loop Complete').item.json.bidder_ids) }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "8f7a64b3-f44c-45f8-98fa-e854b0ff9222",
+      "name": "Trigger WF-4 Verdict Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3360,
+        64
+      ],
+      "notes": "Fires WF-4 webhook after all evidence is stored. n8n internal webhook call — use the same container hostname. WF-4 will fetch all evidence from FastAPI and run the verdict engine."
+    },
+    {
+      "parameters": {
+        "jsCode": "// This node converts internal EvidenceObject → FastAPI schema\n\nfunction makeId(item) {\n  return `${item.tender_id}_${item.bidder_id}_${item.criterion_id}_${Date.now()}`;\n}\n\nreturn $input.all().map(item => {\n  const e = item.json;\n\n  return {\n    json: {\n      id: makeId(e),\n\n      tender_id: e.tender_id,\n      bidder_id: e.bidder_id,\n      criterion_id: e.criterion_id,\n\n      // Convert numeric → string (FastAPI expects string)\n      extracted_value: e.value !== null && e.value !== undefined\n        ? String(e.value)\n        : null,\n\n      // Map quoted text\n      source_text: e.quoted_text || null,\n\n      // Convert single page → array\n      source_pages: e.source_page !== null && e.source_page !== undefined\n        ? [e.source_page]\n        : [],\n\n      // Ensure valid confidence\n      confidence: typeof e.confidence === 'number'\n        ? Math.min(1, Math.max(0, e.confidence))\n        : 0,\n\n      // Default extraction method\n      extraction_method: e.extraction_method || \"rag\",\n\n      // Timestamp\n      extracted_at: e.extracted_at || new Date().toISOString()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        32
+      ],
+      "id": "a30d1587-7a27-466b-9e5d-cd3014289e04",
+      "name": "Format Evidence for FastAPI"
+    },
+    {
+      "parameters": {
+        "jsCode": "const pair = $input.first().json;\n\nconst systemPrompt = `You are a document evidence extractor for Indian government procurement evaluation.\nYour job: find ONE specific value in the provided document chunks.\n\nRULES (non-negotiable):\n1. Return ONLY what is explicitly written in the chunks. Zero inference. Zero estimation.\n2. If the value is not clearly present, return null for value.\n3. quoted_text must be copied VERBATIM from the chunk — exact words, exact spelling.\n4. Never calculate, derive, or average values.\n5. Return ONLY a JSON object — no markdown, no fences, no explanation.\nStart your response with { and end with }\n\nReturn exactly this shape:\n{\n  \"value\": 21000000,\n  \"unit\": \"INR\",\n  \"source_chunk_ref\": 2,\n  \"source_page\": 4,\n  \"quoted_text\": \"exact words from the chunk\",\n  \"confidence\": 0.91,\n  \"not_found_reason\": null\n}\n\nIf NOT found:\n{\n  \"value\": null,\n  \"unit\": null,\n  \"source_chunk_ref\": null,\n  \"source_page\": null,\n  \"quoted_text\": null,\n  \"confidence\": 0.0,\n  \"not_found_reason\": \"one sentence explaining why\"\n}`;\n\nconst userPrompt = `Criterion to find: ${pair.criterion_name}\nFull requirement: ${pair.criterion_description}\nThreshold: ${pair.threshold_value} ${pair.threshold_unit}\n\nDocument chunks from this bidder's submission:\n\n${pair.context_chunks}\n\nFind the evidence for this criterion in the chunks above. Return the JSON object only.`;\n\nconst body = {\n  model: \"ai/mistral:7B-Q4_0\",\n  temperature: 0.0,\n  max_tokens: 800,\n  messages: [\n    { role: \"system\", content: systemPrompt },\n    { role: \"user\",   content: userPrompt   }\n  ]\n};\n\nreturn [{\n  json: {\n    ...pair,\n    llm_body: JSON.stringify(body)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        32
+      ],
+      "id": "da269695-b997-451e-8e0f-8a15bb1f8de5",
+      "name": "Build Evidence Prompt"
+    }
+  ],
+  "pinData": {
+    "Webhook Trigger": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json",
+            "user-agent": "PostmanRuntime/7.53.0",
+            "accept": "*/*",
+            "cache-control": "no-cache",
+            "postman-token": "c28705a4-a98d-4dfb-a42e-d14d30eae49d",
+            "host": "localhost:5678",
+            "accept-encoding": "gzip, deflate, br",
+            "connection": "keep-alive",
+            "content-length": "685"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "tender_id": "9a83f846-35c3-4343-a2c8-d8f132aed7ed",
+            "bidder_ids": [
+              "f8e7f462-6844-4096-a0cc-25a01f2e624c",
+              "e93d8496-b64f-41e5-9973-76a61090b3c6"
+            ],
+            "criterion_ids": [
+              "3e7e0761-8f82-4296-99dc-97254deadab3",
+              "c11acf85-66c3-4f4c-9e4a-3f69ab1779fc",
+              "b1fab842-f5f2-4cc8-89d0-d53bfd1b4769",
+              "d93b785d-7bbd-4c7c-9a90-1c2e2cd7a23d",
+              "339d15bb-80a5-4880-aee2-9aa7355db940",
+              "2230ae5a-e1b4-48b3-9d52-f0a4f6334811",
+              "df8a86cd-a130-46c8-8193-b38a7e057138",
+              "c1eb57f0-5880-49f6-8acf-7662cb6b8d2e",
+              "51a0528f-aefe-4ce9-bd01-48c90a369990",
+              "303e88d5-0186-4387-b2d9-24a3c8f80312",
+              "11ac9a8c-d6e9-4edf-90be-b86d8fea7619",
+              "6b879ff5-1d83-4891-a8f2-17f376c9c846"
+            ]
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/evidence-extraction",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond Immediately",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Confirmed Criteria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Confirmed Criteria": {
+      "main": [
+        [
+          {
+            "node": "Build Bidder × Criterion Matrix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bidder × Criterion Matrix": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Loop Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Embed Criterion Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Criterion Text": {
+      "main": [
+        [
+          {
+            "node": "Attach Embedding to Pair",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Embedding to Pair": {
+      "main": [
+        [
+          {
+            "node": "Search Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Build Extraction Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Extraction Prompt": {
+      "main": [
+        [
+          {
+            "node": "Any Chunks Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Chunks Found?": {
+      "main": [
+        [
+          {
+            "node": "Create Not-Found Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Evidence Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Not-Found Evidence": {
+      "main": [
+        [
+          {
+            "node": "POST Evidence to FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Evidence (Mistral)": {
+      "main": [
+        [
+          {
+            "node": "Parse Evidence JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Evidence JSON": {
+      "main": [
+        [
+          {
+            "node": "Format Evidence for FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Evidence to FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Back to Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Back to Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Complete": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Event": {
+      "main": [
+        [
+          {
+            "node": "Trigger WF-4 Verdict Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Evidence for FastAPI": {
+      "main": [
+        [
+          {
+            "node": "POST Evidence to FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Evidence Prompt": {
+      "main": [
+        [
+          {
+            "node": "Extract Evidence (Mistral)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "f40e2a9b-1933-427b-a50b-5187964cce22",
+  "meta": {
+    "instanceId": "90daaa8fe0c7b89846532888f01906cdce793de9ac34a9e8673cbfa6374d23b8"
+  },
+  "id": "xm4KHezUgV0sFelR",
+  "tags": [
+    {
+      "updatedAt": "2026-05-04T12:40:30.401Z",
+      "createdAt": "2026-05-04T12:40:30.401Z",
+      "id": "MfJvMcgvG7qi68WG",
+      "name": "Final"
+    },
+    {
+      "updatedAt": "2026-05-03T06:36:58.799Z",
+      "createdAt": "2026-05-03T06:36:58.799Z",
+      "id": "Z9epEy8VH84KgNNe",
+      "name": "smarttender"
+    },
+    {
+      "updatedAt": "2026-05-03T07:39:05.218Z",
+      "createdAt": "2026-05-03T07:39:05.218Z",
+      "id": "dpvsHJJTJqrBkP4A",
+      "name": "wf3-evidence"
+    }
+  ]
+}

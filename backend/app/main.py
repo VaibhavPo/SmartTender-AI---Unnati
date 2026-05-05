@@ -22,6 +22,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import engine, Base
@@ -58,6 +60,59 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables ensured.")
+
+    # Remove any legacy duplicate rows before enforcing uniqueness.
+    async with engine.begin() as conn:
+        result = await conn.execute(
+            text(
+                "DELETE FROM verdict_events a USING verdict_events b "
+                "WHERE a.tender_id = b.tender_id "
+                "AND a.bidder_id = b.bidder_id "
+                "AND a.criterion_id = b.criterion_id "
+                "AND a.version = b.version "
+                "AND a.id > b.id"
+            )
+        )
+        logger.info("Duplicate verdict rows cleaned: %s", result.rowcount)
+
+        result = await conn.execute(
+            text(
+                "DELETE FROM evidence a USING evidence b "
+                "WHERE a.bidder_id = b.bidder_id "
+                "AND a.criterion_id = b.criterion_id "
+                "AND a.id > b.id"
+            )
+        )
+        logger.info("Duplicate evidence rows cleaned: %s", result.rowcount)
+
+    async with engine.begin() as conn:
+        try:
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_verdict_tender_bidder_criterion_version "
+                    "ON verdict_events (tender_id, bidder_id, criterion_id, version)"
+                )
+            )
+            logger.info("Unique index uq_verdict_tender_bidder_criterion_version ensured.")
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "Could not create unique index uq_verdict_tender_bidder_criterion_version: %s",
+                exc,
+            )
+
+        try:
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_evidence_bidder_criterion "
+                    "ON evidence (bidder_id, criterion_id)"
+                )
+            )
+            logger.info("Unique index uq_evidence_bidder_criterion ensured.")
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "Could not create unique index uq_evidence_bidder_criterion: %s",
+                exc,
+            )
 
     yield
 

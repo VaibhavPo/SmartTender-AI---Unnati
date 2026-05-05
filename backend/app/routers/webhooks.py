@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -94,8 +94,36 @@ async def criteria_extracted(body: CriteriaResult, db: AsyncSession = Depends(ge
     Stores all extracted criteria in the database. These are then shown
     to the officer for review and editing before evaluation starts.
     """
+    # Remove any previously extracted pending criteria for this tender.
+    # If WF-2 runs again, we should replace the old pending set rather than duplicate it.
+    await db.execute(
+        delete(CriterionDB).where(
+            CriterionDB.tender_id == body.tender_id,
+            CriterionDB.status == "pending",
+        )
+    )
+
     stored_ids = []
+    seen_criteria: set[tuple[str, str, str, str, str, bool, str, int]] = set()
+
+    def criterion_key(c: CriterionSchema) -> tuple[str, str, str, str, str, bool, str, int]:
+        return (
+            c.name.strip().casefold(),
+            c.description.strip().casefold(),
+            c.criterion_type,
+            (c.threshold_value or "").strip().casefold(),
+            (c.unit or "").strip().casefold(),
+            c.is_mandatory,
+            (c.section_reference or "").strip().casefold(),
+            c.order_index,
+        )
+
     for c in body.criteria:
+        key = criterion_key(c)
+        if key in seen_criteria:
+            continue
+        seen_criteria.add(key)
+
         criterion = CriterionDB(
             id=c.id or str(uuid.uuid4()),
             tender_id=body.tender_id,
@@ -187,8 +215,9 @@ async def evidence_extracted(body: EvidenceObject, db: AsyncSession = Depends(ge
 
     n8n sends these one at a time as it processes each pair.
     """
-    evidence = EvidenceDB(
-        id=body.id or str(uuid.uuid4()),
+    evidence_id = str(uuid.uuid4())
+    insert_stmt = insert(EvidenceDB).values(
+        id=evidence_id,
         tender_id=body.tender_id,
         bidder_id=body.bidder_id,
         criterion_id=body.criterion_id,
@@ -199,7 +228,18 @@ async def evidence_extracted(body: EvidenceObject, db: AsyncSession = Depends(ge
         extraction_method=body.extraction_method,
         extracted_at=datetime.now(timezone.utc),
     )
-    db.add(evidence)
+    stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[EvidenceDB.bidder_id, EvidenceDB.criterion_id],
+        set_={
+            "extracted_value": insert_stmt.excluded.extracted_value,
+            "source_text": insert_stmt.excluded.source_text,
+            "source_pages": insert_stmt.excluded.source_pages,
+            "confidence": insert_stmt.excluded.confidence,
+            "extraction_method": insert_stmt.excluded.extraction_method,
+            "extracted_at": insert_stmt.excluded.extracted_at,
+        },
+    )
+    await db.execute(stmt)
 
     # Audit event
     audit = AuditEventDB(
@@ -208,7 +248,7 @@ async def evidence_extracted(body: EvidenceObject, db: AsyncSession = Depends(ge
         event_type="EVIDENCE_EXTRACTED",
         actor="n8n_workflow_3",
         entity_type="evidence",
-        entity_id=evidence.id,
+        entity_id=evidence_id,
         detail=f"Extracted evidence for bidder {body.bidder_id}, criterion {body.criterion_id}",
     )
     db.add(audit)
@@ -217,7 +257,7 @@ async def evidence_extracted(body: EvidenceObject, db: AsyncSession = Depends(ge
         f"Evidence stored: bidder={body.bidder_id}, criterion={body.criterion_id}, "
         f"confidence={body.confidence}"
     )
-    return {"message": "Evidence stored", "evidence_id": evidence.id}
+    return {"message": "Evidence stored", "evidence_id": evidence_id}
 
 
 # ── POST /webhooks/verdict-rendered — n8n Workflow 4 callback ──
@@ -226,6 +266,27 @@ async def verdict_rendered(body: VerdictRecord, db: AsyncSession = Depends(get_d
     """
     Called by: n8n Workflow 4 for each verdict decision.
     """
+    # Prevent duplicate verdict rows when the workflow is run more than once.
+    duplicate_check = await db.execute(
+        select(VerdictDB.id)
+        .where(
+            VerdictDB.tender_id == body.tender_id,
+            VerdictDB.bidder_id == body.bidder_id,
+            VerdictDB.criterion_id == body.criterion_id,
+            VerdictDB.version == body.version,
+        )
+        .limit(1)
+    )
+    existing_id = duplicate_check.scalar_one_or_none()
+    if existing_id:
+        logger.info(
+            "Duplicate verdict ignored for bidder=%s, criterion=%s, version=%s",
+            body.bidder_id,
+            body.criterion_id,
+            body.version,
+        )
+        return {"message": "Duplicate verdict ignored", "verdict_id": existing_id}
+
     verdict = VerdictDB(
         id=body.id or str(uuid.uuid4()),
         tender_id=body.tender_id,
@@ -260,7 +321,8 @@ async def verdict_rendered(body: VerdictRecord, db: AsyncSession = Depends(get_d
     return {"message": "Verdict stored", "verdict_id": verdict.id}
 
 
-# ── POST /webhooks/evaluation-complete — n8n Workflow 4 final callback ──
+# ── POST /webhooks/evaluation-complete — n8n Workflow 4 final callback ─
+
 class EvaluationComplete(BaseModel):
     tender_id: str
     total_verdicts: int = 0

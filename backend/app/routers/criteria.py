@@ -11,13 +11,13 @@ import uuid
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.models.schemas import CriterionSchema, EvaluationTrigger
-from app.models.db_models import CriterionDB, TenderDB, AuditEventDB
+from app.models.db_models import CriterionDB, TenderDB, AuditEventDB, EvidenceDB, VerdictDB
 from app.services.n8n_client import trigger_webhook
 
 logger = logging.getLogger("smarttender.criteria")
@@ -137,6 +137,53 @@ async def update_criterion(
         section_reference=criterion.section_reference,
         order_index=criterion.order_index,
     )
+
+
+# ── DELETE /criteria/{id} — Delete a single criterion ──
+@router.delete("/{criterion_id}")
+async def delete_criterion(
+    criterion_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    DELETE /api/v1/criteria/{id} — Officer deletes a criterion.
+    Called by: React (Criteria Review screen).
+    """
+    result = await db.execute(select(CriterionDB).where(CriterionDB.id == criterion_id))
+    criterion = result.scalar_one_or_none()
+    if not criterion:
+        raise HTTPException(status_code=404, detail="Criterion not found")
+
+    # Check if criterion is confirmed (evaluation started)
+    if criterion.status == "confirmed":
+        raise HTTPException(status_code=400, detail="Cannot delete confirmed criteria")
+
+    # Delete associated verdicts first (cascade)
+    await db.execute(
+        delete(VerdictDB).where(VerdictDB.criterion_id == criterion_id)
+    )
+
+    # Delete associated evidences
+    await db.execute(
+        delete(EvidenceDB).where(EvidenceDB.criterion_id == criterion_id)
+    )
+
+    # Write audit event
+    audit = AuditEventDB(
+        id=str(uuid.uuid4()),
+        tender_id=criterion.tender_id,
+        event_type="CRITERION_DELETED",
+        actor="officer",
+        entity_type="criterion",
+        entity_id=criterion_id,
+        detail=f"Deleted criterion: {criterion.name}",
+    )
+    db.add(audit)
+
+    await db.delete(criterion)
+    await db.commit()
+
+    return {"message": "Criterion deleted"}
 
 
 # ── POST /criteria/confirm — Officer confirms criteria and starts evaluation ──

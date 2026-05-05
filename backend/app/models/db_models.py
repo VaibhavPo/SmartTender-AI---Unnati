@@ -28,6 +28,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -152,6 +153,7 @@ class EvidenceDB(Base):
 
     __table_args__ = (
         Index("ix_evidence_tender_bidder_criterion", "tender_id", "bidder_id", "criterion_id"),
+        UniqueConstraint("bidder_id", "criterion_id", name="uq_evidence_bidder_criterion"),
     )
 
 
@@ -177,6 +179,13 @@ class VerdictDB(Base):
     __table_args__ = (
         Index("ix_verdicts_tender_bidder", "tender_id", "bidder_id"),
         Index("ix_verdicts_criterion", "criterion_id"),
+        UniqueConstraint(
+            "tender_id",
+            "bidder_id",
+            "criterion_id",
+            "version",
+            name="uq_verdict_tender_bidder_criterion_version",
+        ),
     )
 
 

@@ -1,0 +1,605 @@
+{
+  "name": "WF-4 — Verdict Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "verdict-engine",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "207a300d-2e86-4040-abe3-9a0c0f147cc8",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        16
+      ],
+      "webhookId": "smarttender-verdict-engine"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, tender_id: $json.tender_id, status: 'verdict_processing' }) }}",
+        "options": {}
+      },
+      "id": "583b0a46-5cbe-4f9e-ad9b-23d35b9300bf",
+      "name": "Respond Immediately",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1/criteria?tender_id={{ $json.body.tender_id }}&status=confirmed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "823652bd-81c5-4b32-9a75-f3d5684852cd",
+      "name": "Fetch All Criteria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        32,
+        16
+      ],
+      "notes": "Fetch all confirmed criteria for this tender. Used to build the full criterion map for each bidder."
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1/evidence?tender_id={{ $json.body.tender_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "2f393bce-e2cb-4af3-856a-5d0bad9734dd",
+      "name": "Fetch All Evidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        32,
+        160
+      ],
+      "notes": "Fetches ALL evidence for this tender in one call. FastAPI returns a flat array filtered by tender_id. We join to criteria in the next Code node."
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nlet criteria = [];\nlet evidenceList = [];\n\n// --- Separate inputs ---\nfor (const item of items) {\n  const j = item.json;\n\n  if (j.criterion_type) {\n    criteria.push(j);\n  } else if (j.bidder_id && j.criterion_id) {\n    evidenceList.push(j);\n  }\n}\n\n// --- Deduplicate criteria ---\nconst uniqueCriteriaMap = {};\nfor (const c of criteria) {\n  const key = c.name + '|' + c.section_reference;\n  if (!uniqueCriteriaMap[key]) {\n    uniqueCriteriaMap[key] = c;\n  }\n}\ncriteria = Object.values(uniqueCriteriaMap);\n\n// --- Build evidence lookup ---\nconst evidenceMap = {};\nfor (const e of evidenceList) {\n  const key = `${e.bidder_id}__${e.criterion_id}`;\n  evidenceMap[key] = e;\n}\n\n// --- Get bidders ---\nconst bidder_ids = [...new Set(evidenceList.map(e => e.bidder_id))];\n\n// --- Build pairs ---\nconst pairs = [];\n\nfor (const bidder_id of bidder_ids) {\n  for (const criterion of criteria) {\n    const key = `${bidder_id}__${criterion.id}`;\n    const evidence = evidenceMap[key] || null;\n\n    pairs.push({\n      bidder_id,\n      criterion_id: criterion.id,\n      criterion_name: criterion.name,\n      criterion_type: criterion.criterion_type,\n\n      evidence_id: evidence?.id ?? null,\n      extracted_value: evidence?.extracted_value ?? null,\n      confidence: evidence?.confidence ?? 0,\n\n      evidence_missing: !evidence || evidence.extracted_value === null\n    });\n  }\n}\n\nreturn pairs.map(p => ({ json: p }));"
+      },
+      "id": "887e05c1-2123-4670-8ce2-3eff65e8b84a",
+      "name": "Build Evidence-Criterion Pairs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        96
+      ],
+      "retryOnFail": false,
+      "notes": "Joins criteria and evidence into flat triplets. Sets evidence_missing:true when evidence is null or value is null. This is the single source of truth for the rule layer."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "bfa10a39-8d51-471a-9b39-5993f5576bf4",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        656,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ════════════════════════════════════════════════\n// RULE LAYER — runs before any LLM call.\n// Handles: missing evidence, numeric, certification\n// date expiry, compliance boolean.\n// Returns verdict or 'needs_llm' for semantic cases.\n// ════════════════════════════════════════════════\n\nconst p = $input.first().json;\n\n// Helper: normalise Indian number formats to float\n// Handles: \"50,00,000\" / \"₹1.4 crore\" / \"1.4 crores\" / \"140 lakhs\"\nfunction toFloat(val) {\n  if (val === null || val === undefined) return null;\n  if (typeof val === 'number') return val;\n  let s = String(val).toLowerCase();\n  // Remove currency symbols and spaces\n  s = s.replace(/[₹$,\\s]/g, '');\n  // Crore conversion\n  if (s.includes('crore')) {\n    const n = parseFloat(s.replace(/crores?/, ''));\n    return isNaN(n) ? null : n * 10000000;\n  }\n  // Lakh conversion\n  if (s.includes('lakh')) {\n    const n = parseFloat(s.replace(/lakhs?/, ''));\n    return isNaN(n) ? null : n * 100000;\n  }\n  const n = parseFloat(s);\n  return isNaN(n) ? null : n;\n}\n\n// Helper: parse date string to comparable value\nfunction parseDate(val) {\n  if (!val) return null;\n  const d = new Date(val);\n  return isNaN(d.getTime()) ? null : d;\n}\n\nfunction makeVerdict(verdict, reason, confidence, method) {\n  return {\n    ...p,\n    verdict,\n    reason,\n    verdict_confidence: confidence,\n    verdict_method: method,\n    needs_llm: false,\n    decided_at: new Date().toISOString()\n  };\n}\n\n// ── Rule 1: Evidence completely missing ──────────\nif (p.evidence_missing) {\n  return [{ json: makeVerdict(\n    'MANUAL_REVIEW',\n    p.not_found_reason || 'No evidence found in bidder submitted documents',\n    1.0,\n    'rule_missing'\n  )}];\n}\n\n// ── Rule 2: Low extraction confidence ───────────\n// Skip rules entirely if confidence is too low\nif (p.extracted_confidence < 0.60) {\n  return [{ json: {\n    ...p,\n    verdict: null,\n    needs_llm: true,\n    llm_reason: `Extraction confidence too low (${p.extracted_confidence}) — needs LLM review`,\n    decided_at: new Date().toISOString()\n  }}];\n}\n\n// ── Rule 3: Financial / numeric threshold ────────\nif (p.criterion_type === 'financial') {\n  const extracted = toFloat(p.extracted_value);\n  const threshold = toFloat(p.threshold_value);\n\n  if (extracted === null) {\n    return [{ json: makeVerdict(\n      'MANUAL_REVIEW',\n      `Could not parse extracted value \"${p.extracted_value}\" as a number`,\n      0.9,\n      'rule_parse_failed'\n    )}];\n  }\n\n  if (threshold === null) {\n    // No threshold to compare — needs LLM\n    return [{ json: { ...p, verdict: null, needs_llm: true, llm_reason: 'Financial criterion has no numeric threshold — semantic review needed', decided_at: new Date().toISOString() } }];\n  }\n\n  // High-confidence rule decision\n  if (p.extracted_confidence >= 0.80) {\n    const pass = extracted >= threshold;\n    return [{ json: makeVerdict(\n      pass ? 'ELIGIBLE' : 'INELIGIBLE',\n      pass\n        ? `Extracted value ${extracted} meets threshold ${threshold} ${p.threshold_unit || ''}`\n        : `Extracted value ${extracted} is below threshold ${threshold} ${p.threshold_unit || ''}`,\n      0.95,\n      'rule_numeric'\n    )}];\n  }\n\n  // Borderline confidence — send to LLM\n  return [{ json: { ...p, needs_llm: true, llm_reason: `Numeric comparison clear but extraction confidence ${p.extracted_confidence} is borderline`, decided_at: new Date().toISOString() } }];\n}\n\n// ── Rule 4: Certification expiry date ────────────\nif (p.criterion_type === 'certification') {\n  // extracted_value should be the expiry date of the certificate\n  const expiryDate = parseDate(p.extracted_value);\n  const submissionDate = p.tender_submission_date ? parseDate(p.tender_submission_date) : new Date();\n\n  if (expiryDate === null) {\n    return [{ json: { ...p, verdict: null, needs_llm: true, llm_reason: `Could not parse certificate expiry date from \"${p.extracted_value}\"`, decided_at: new Date().toISOString() } }];\n  }\n\n  const isValid = expiryDate > submissionDate;\n  return [{ json: makeVerdict(\n    isValid ? 'ELIGIBLE' : 'INELIGIBLE',\n    isValid\n      ? `Certificate valid until ${p.extracted_value} — beyond submission date`\n      : `Certificate EXPIRED on ${p.extracted_value} — before submission date`,\n    0.99,\n    'rule_date'\n  )}];\n}\n\n// ── Rule 5: Compliance (GST / EPFO / ESIC) ───────\nif (p.criterion_type === 'compliance') {\n  const val = String(p.extracted_value || '').toLowerCase().trim();\n  const POSITIVE = ['yes', 'true', '1', 'active', 'registered', 'valid', 'present'];\n  const NEGATIVE = ['no', 'false', '0', 'inactive', 'cancelled', 'expired', 'absent'];\n\n  if (POSITIVE.some(v => val.includes(v))) {\n    return [{ json: makeVerdict('ELIGIBLE', `Registration/compliance confirmed: \"${p.extracted_value}\"`, 0.95, 'rule_boolean') }];\n  }\n  if (NEGATIVE.some(v => val.includes(v))) {\n    return [{ json: makeVerdict('INELIGIBLE', `Registration/compliance failed: \"${p.extracted_value}\"`, 0.95, 'rule_boolean') }];\n  }\n  // Value present but not clearly positive/negative — LLM needed\n  return [{ json: { ...p, verdict: null, needs_llm: true, llm_reason: `Compliance value \"${p.extracted_value}\" is ambiguous — not a clear yes/no`, decided_at: new Date().toISOString() } }];\n}\n\n// ── Rule 6: Technical (similar work, scope) ───────\n// Always goes to LLM — semantic judgment required\nif (p.criterion_type === 'technical') {\n  return [{ json: { ...p, verdict: null, needs_llm: true, llm_reason: 'Technical criterion requires semantic similarity judgment', decided_at: new Date().toISOString() } }];\n}\n\n// ── Fallback: unknown type → LLM ─────────────────\nreturn [{ json: { ...p, verdict: null, needs_llm: true, llm_reason: `Unknown criterion type \"${p.criterion_type}\"`, decided_at: new Date().toISOString() } }];"
+      },
+      "id": "c2b8f625-607b-40e8-a7b2-4e71f8041353",
+      "name": "Rule Layer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -16
+      ],
+      "notes": "Single Code node handles ALL rule types: missing evidence, financial numeric, certification date expiry, compliance boolean. Sets needs_llm:true for technical/ambiguous cases. Handles Indian number formats (crores, lakhs, commas)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "cond-needs-llm",
+              "leftValue": "={{ $json.needs_llm }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f62521ac-82a7-4602-9fe1-427e3617cda6",
+      "name": "Needs LLM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        -16
+      ],
+      "notes": "Routes to LLM only when rules couldn't decide. FALSE path = rule gave a clear verdict, skip LLM entirely."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:12434/engines/llama.cpp/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"ai/mistral:7B-Q4_0\",\n  \"temperature\": 0.0,\n  \"max_tokens\": 400,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a procurement rules engine for Indian government tenders (CRPF).\\nA human officer will review your decision. When in doubt, return MANUAL_REVIEW.\\n\\nReturn ONLY this JSON object. No prose. No markdown. No explanation outside the object.\\nStart with { and end with }\\n\\n{\\n  \\\"verdict\\\": \\\"ELIGIBLE | INELIGIBLE | MANUAL_REVIEW\\\",\\n  \\\"reason\\\": \\\"one specific sentence citing the evidence value and criterion\\\",\\n  \\\"confidence\\\": 0.87\\n}\\n\\nRULES:\\n- ELIGIBLE: evidence clearly satisfies the criterion\\n- INELIGIBLE: evidence clearly fails the criterion\\n- MANUAL_REVIEW: any doubt, ambiguity, or missing context\\n- Never return ELIGIBLE if confidence < 0.75\\n- Never invent values not present in the evidence\\n- For similar work: match government/defence/residential classification strictly\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Criterion: {{ $json.criterion_name }}\\nType: {{ $json.criterion_type }}\\nRequirement: {{ $json.criterion_description || $json.criterion_name }}\\nThreshold: {{ $json.threshold_value }} {{ $json.threshold_unit }}\\n\\nEvidence extracted from bidder documents:\\nValue: {{ $json.extracted_value }}\\nUnit: {{ $json.extracted_unit }}\\nDirect quote: \\\"{{ $json.quoted_text }}\\\"\\nPage: {{ $json.source_page }}\\nExtraction confidence: {{ $json.extracted_confidence }}\\n\\nReason this needs LLM review: {{ $json.llm_reason }}\\n\\nReturn the verdict JSON object.\"\n    }\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "5bf83b6b-9bf2-4b11-ae3e-2a5e8f9433ee",
+      "name": "LLM Verdict Reasoning",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        -112
+      ],
+      "notes": "Called only for: technical criteria, ambiguous compliance values, borderline confidence. Temperature 0.0. Max tokens 400 — verdict object is small."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the LLM verdict response.\n// Enforce: only ELIGIBLE / INELIGIBLE / MANUAL_REVIEW are valid.\n// Apply confidence gate: < 0.75 → force MANUAL_REVIEW.\n// Detect hedging language → force MANUAL_REVIEW.\n\nconst llmResponse = $input.first().json;\nconst pair = $('Split In Batches').first().json;\n\nlet raw = llmResponse.choices?.[0]?.message?.content || '';\nraw = raw.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/i, '').trim();\n\nconst objStart = raw.indexOf('{');\nconst objEnd = raw.lastIndexOf('}');\n\nlet parsed = { verdict: 'MANUAL_REVIEW', reason: 'LLM response could not be parsed', confidence: 0.0 };\n\nif (objStart !== -1 && objEnd !== -1) {\n  try {\n    const clean = raw.substring(objStart, objEnd + 1).replace(/,\\s*([\\]\\}])/g, '$1');\n    parsed = JSON.parse(clean);\n  } catch (e) {\n    parsed = { verdict: 'MANUAL_REVIEW', reason: `Parse error: ${e.message}`, confidence: 0.0 };\n  }\n}\n\n// Enforce valid verdict values\nconst VALID_VERDICTS = ['ELIGIBLE', 'INELIGIBLE', 'MANUAL_REVIEW'];\nif (!VALID_VERDICTS.includes(parsed.verdict)) {\n  parsed.verdict = 'MANUAL_REVIEW';\n  parsed.reason = `AI returned unknown verdict \"${parsed.verdict}\": ${parsed.reason}`;\n  parsed.confidence = 0.3;\n}\n\n// Confidence gate — anything below 0.75 becomes MANUAL_REVIEW\nif (typeof parsed.confidence === 'number' && parsed.confidence < 0.75) {\n  parsed.verdict = 'MANUAL_REVIEW';\n  parsed.reason = `Confidence ${parsed.confidence} below threshold 0.75: ${parsed.reason}`;\n}\n\n// Hedging language detection — model is uncertain even if it returned ELIGIBLE\nconst HEDGE_WORDS = ['unclear', 'possibly', 'might', 'could be', 'uncertain', 'depends', 'perhaps', 'ambiguous'];\nconst reasonLower = (parsed.reason || '').toLowerCase();\nif (parsed.verdict === 'ELIGIBLE' && HEDGE_WORDS.some(w => reasonLower.includes(w))) {\n  parsed.verdict = 'MANUAL_REVIEW';\n  parsed.reason = `Hedging language detected in reasoning: ${parsed.reason}`;\n  parsed.confidence = Math.min(parsed.confidence, 0.5);\n}\n\nreturn [{\n  json: {\n    ...pair,\n    verdict: parsed.verdict,\n    reason: parsed.reason,\n    verdict_confidence: parsed.confidence,\n    verdict_method: 'llm_mistral',\n    needs_llm: false,\n    decided_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "4a73ed53-b7ba-4c08-aad8-a191cde35003",
+      "name": "Parse LLM Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -112
+      ],
+      "notes": "Enforces valid verdicts only. Applies confidence gate <0.75 → MANUAL_REVIEW. Detects hedging language in ELIGIBLE verdicts and downgrades. Never crashes — always returns a valid verdict."
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuid() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    const v = c === 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\n\nconst v = $input.first().json;\n\n// --- Verdict mapping ---\nlet finalVerdict = 'MANUAL_REVIEW';\n\nif (v.verdict === 'ELIGIBLE') finalVerdict = 'PASS';\nelse if (v.verdict === 'INELIGIBLE') finalVerdict = 'FAIL';\nelse if (v.verdict === 'MANUAL_REVIEW') finalVerdict = 'MANUAL_REVIEW';\n\n// --- Safety fallback ---\nif (!['PASS', 'FAIL', 'MANUAL_REVIEW'].includes(finalVerdict)) {\n  finalVerdict = 'MANUAL_REVIEW';\n}\n\n// --- Validate required fields ---\nif (!$('Merge').first().json.tender_id) {\n  throw new Error('tender_id is missing before POST');\n}\n\nreturn [{\n  json: {\n    id: uuid(), // or remove if backend generates\n    tender_id: $('Merge').first().json.tender_id,\n    bidder_id: v.bidder_id,\n    criterion_id: v.criterion_id,\n    evidence_id: v.evidence_id || null,\n\n    verdict: finalVerdict,\n    reason: v.reason || 'No reason provided',\n    confidence: v.verdict_confidence ?? 0.5,\n\n    decided_by: v.verdict_method || 'rule_engine',\n    version: 1,\n    decided_at: v.decided_at || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "cef05d10-4704-42a0-b901-c76063820e1e",
+      "name": "Assemble Verdict Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        80
+      ],
+      "notes": "Merges rule and LLM paths into one canonical VerdictRecord shape. Sets requires_officer_review flag. Leaves officer_override fields null for the human review step."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/webhooks/verdict-rendered",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "99beb244-d41c-4fff-b205-53f11b11c619",
+      "name": "POST Verdict to FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1968,
+        80
+      ],
+      "notes": "FastAPI writes to verdict_events (append-only). Also writes AuditEvent. UI dashboard updates when it polls GET /verdicts?tender_id=."
+    },
+    {
+      "parameters": {},
+      "id": "3546ae38-448e-48d2-b981-99502a71c106",
+      "name": "Back to Split In Batches",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        80
+      ],
+      "notes": "Routes back into the Split In Batches loop for the next pair."
+    },
+    {
+      "parameters": {
+        "jsCode": "// All verdict pairs have been processed.\n// Build the completion summary.\nconst webhookData = $('Webhook Trigger').first().json.body;\n\nreturn [{\n  json: {\n    tender_id: webhookData.tender_id,\n    bidder_ids: webhookData.bidder_ids,\n    status: 'verdict_engine_complete',\n    completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "40cd073c-b201-49f3-82f1-c10b0766e769",
+      "name": "Loop Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/audit-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Loop Complete').item.json.tender_id }}\",\n  \"event_type\": \"evidence_extraction_complete\",\n  \"actor\": \"n8n_wf3\",\n  \"entity_type\": \"tender\",\n  \"entity_id\": \"{{ $('Loop Complete').item.json.tender_id }}\",\n  \"detail\": \"Extraction completed for {{ $('Loop Complete').item.json.bidder_ids.length }} bidder(s): {{ $('Loop Complete').item.json.bidder_ids.join(', ') }} at {{ $('Loop Complete').item.json.completed_at }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "a8a07c0c-6f49-41ab-a4e4-dd5f04a7911f",
+      "name": "Write Audit Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/webhooks/evaluation-complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Loop Complete').first().json.tender_id }}\",\n  \"bidder_ids\": {{ JSON.stringify($('Loop Complete').first().json.bidder_ids) }},\n  \"status\": \"verdicts_ready\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "108ca1ef-8896-4fc6-8771-79dae2b99861",
+      "name": "Notify Evaluation Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2848,
+        128
+      ],
+      "notes": "FastAPI updates tender status to verdicts_ready. UI polls this status — when it changes, the dashboard populates automatically."
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        224,
+        96
+      ],
+      "id": "deab497a-d473-4ad7-8545-e7b8bc0620b3",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {
+    "Webhook Trigger": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "content-type": "application/json",
+            "user-agent": "axios/1.13.5",
+            "content-length": "145",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "host": "localhost:5678",
+            "connection": "close"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "tender_id": "9a83f846-35c3-4343-a2c8-d8f132aed7ed",
+            "bidder_ids": [
+              "f8e7f462-6844-4096-a0cc-25a01f2e624c",
+              "e93d8496-b64f-41e5-9973-76a61090b3c6"
+            ]
+          },
+          "webhookUrl": "http://localhost:5678/webhook/verdict-engine",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond Immediately",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch All Criteria",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch All Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Criteria": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Evidence": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Evidence-Criterion Pairs": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Loop Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rule Layer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rule Layer": {
+      "main": [
+        [
+          {
+            "node": "Needs LLM?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs LLM?": {
+      "main": [
+        [
+          {
+            "node": "LLM Verdict Reasoning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Assemble Verdict Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Verdict Reasoning": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Verdict": {
+      "main": [
+        [
+          {
+            "node": "Assemble Verdict Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Verdict Record": {
+      "main": [
+        [
+          {
+            "node": "POST Verdict to FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Verdict to FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Back to Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Back to Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Complete": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Event": {
+      "main": [
+        [
+          {
+            "node": "Notify Evaluation Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build Evidence-Criterion Pairs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "57d62984-c4d5-4d8c-9f49-67343944bf6b",
+  "meta": {
+    "instanceId": "90daaa8fe0c7b89846532888f01906cdce793de9ac34a9e8673cbfa6374d23b8"
+  },
+  "id": "L1QyKj3vLqSrunwI",
+  "tags": [
+    {
+      "updatedAt": "2026-05-04T12:40:30.401Z",
+      "createdAt": "2026-05-04T12:40:30.401Z",
+      "id": "MfJvMcgvG7qi68WG",
+      "name": "Final"
+    },
+    {
+      "updatedAt": "2026-05-03T06:36:58.799Z",
+      "createdAt": "2026-05-03T06:36:58.799Z",
+      "id": "Z9epEy8VH84KgNNe",
+      "name": "smarttender"
+    },
+    {
+      "updatedAt": "2026-05-03T11:51:06.157Z",
+      "createdAt": "2026-05-03T11:51:06.157Z",
+      "id": "dweyooumEd2AtPpk",
+      "name": "wf4-verdict"
+    }
+  ]
+}

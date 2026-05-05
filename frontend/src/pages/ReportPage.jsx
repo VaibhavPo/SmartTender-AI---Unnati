@@ -177,8 +177,9 @@ export default function ReportPage() {
                   .sort((a, b) => b.summary.pass - a.summary.pass)
                   .map((bidder, idx) => {
                     const { pass, fail, review, total } = bidder.summary;
+                    const pending = total - (pass + fail + review);
                     const score = total > 0 ? ((pass / total) * 100).toFixed(0) : 0;
-                    const qualified = fail === 0 && review === 0;
+                    const qualified = fail === 0 && review === 0 && pending === 0;
 
                     return (
                       <tr key={bidder.id} className="hover:bg-white/5 transition-colors">
@@ -191,10 +192,10 @@ export default function ReportPage() {
                           <span className="gradient-text font-bold">{score}%</span>
                         </td>
                         <td className="py-3 text-center">
-                          {qualified ? (
-                            <span className="badge-pass">Qualified</span>
-                          ) : review > 0 ? (
+                          {pending > 0 ? (
                             <span className="badge-review">Pending</span>
+                          ) : qualified ? (
+                            <span className="badge-pass">Qualified</span>
                           ) : (
                             <span className="badge-fail">Disqualified</span>
                           )}

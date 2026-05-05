@@ -36,7 +36,12 @@ api.interceptors.response.use(
 
     console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}: ${message}`);
 
-    return Promise.reject({ message, status: error.response?.status });
+    return Promise.reject({
+      message,
+      status: error.response?.status,
+      detail: error.response?.data?.detail,
+      original: error,
+    });
   }
 );
 
@@ -72,6 +77,7 @@ export const criteriaApi = {
     api.post(`/criteria/extract?tender_id=${tenderId}&document_id=${documentId}`),
   update: (id, data) => api.put(`/criteria/${id}`, data),
   confirm: (data) => api.post("/criteria/confirm", data),
+  delete: (id) => api.delete(`/criteria/${id}`),
 };
 
 export const evidenceApi = {

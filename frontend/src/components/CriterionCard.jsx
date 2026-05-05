@@ -14,7 +14,7 @@ const CRITERION_TYPES = [
   { value: "text", label: "Text (free-form)" },
 ];
 
-export default function CriterionCard({ criterion, index, onUpdate }) {
+export default function CriterionCard({ criterion, index, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...criterion });
 
@@ -123,12 +123,20 @@ export default function CriterionCard({ criterion, index, onUpdate }) {
               {criterion.section_reference && <span>📍 {criterion.section_reference}</span>}
             </div>
           </div>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-primary-400 hover:text-primary-300 transition-colors shrink-0"
-          >
-            ✏️ Edit
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+            >
+              ✏️ Edit
+            </button>
+            <button
+              onClick={() => onDelete(criterion.id)}
+              className="text-sm text-red-400 hover:text-red-300 transition-colors"
+            >
+              🗑️ Delete
+            </button>
+          </div>
         </div>
       )}
     </div>

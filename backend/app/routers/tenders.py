@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.schemas import TenderCreate, TenderResponse, BidderCreate, BidderResponse
-from app.models.db_models import TenderDB, BidderDB, DocumentDB
+from app.models.db_models import TenderDB, BidderDB, DocumentDB, CriterionDB, VerdictDB, EvidenceDB
 
 router = APIRouter(prefix="/tenders")
 
@@ -169,3 +169,98 @@ async def list_bidders(tender_id: str, db: AsyncSession = Depends(get_db)):
         )
         for b in bidders
     ]
+
+
+# ── GET /tenders/{id}/evaluation-data — Get normalized evaluation data ──
+@router.get("/{tender_id}/evaluation-data")
+async def get_tender_evaluation_data(tender_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    GET /api/v1/tenders/{tender_id}/evaluation-data — Return the tender and all related entities.
+    """
+    result = await db.execute(select(TenderDB).where(TenderDB.id == tender_id))
+    tender = result.scalar_one_or_none()
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+
+    bidders_result = await db.execute(select(BidderDB).where(BidderDB.tender_id == tender_id))
+    bidders = bidders_result.scalars().all()
+
+    criteria_result = await db.execute(select(CriterionDB).where(CriterionDB.tender_id == tender_id))
+    criteria = criteria_result.scalars().all()
+
+    verdicts_result = await db.execute(select(VerdictDB).where(VerdictDB.tender_id == tender_id))
+    verdicts = verdicts_result.scalars().all()
+
+    evidence_result = await db.execute(select(EvidenceDB).where(EvidenceDB.tender_id == tender_id))
+    evidence = evidence_result.scalars().all()
+
+    return {
+        "tender": {
+            "id": tender.id,
+            "name": tender.name,
+            "reference_number": tender.reference_number,
+            "description": tender.description,
+            "submission_deadline": tender.submission_deadline,
+            "status": tender.status,
+            "created_at": tender.created_at.isoformat() if tender.created_at else None,
+        },
+        "bidders": [
+            {
+                "id": b.id,
+                "tender_id": b.tender_id,
+                "name": b.name,
+                "registration_number": b.registration_number,
+                "created_at": b.created_at.isoformat() if b.created_at else None,
+            }
+            for b in bidders
+        ],
+        "criteria": [
+            {
+                "id": c.id,
+                "tender_id": c.tender_id,
+                "name": c.name,
+                "description": c.description,
+                "criterion_type": c.criterion_type,
+                "threshold_value": c.threshold_value,
+                "unit": c.unit,
+                "is_mandatory": c.is_mandatory,
+                "section_reference": c.section_reference,
+                "order_index": c.order_index,
+                "status": c.status,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in criteria
+        ],
+        "verdicts": [
+            {
+                "id": v.id,
+                "tender_id": v.tender_id,
+                "bidder_id": v.bidder_id,
+                "criterion_id": v.criterion_id,
+                "evidence_id": v.evidence_id,
+                "verdict": v.verdict,
+                "reason": v.reason,
+                "confidence": v.confidence,
+                "decided_by": v.decided_by,
+                "version": v.version,
+                "decided_at": v.decided_at.isoformat() if v.decided_at else None,
+            }
+            for v in verdicts
+        ],
+        "evidence": [
+            {
+                "id": e.id,
+                "tender_id": e.tender_id,
+                "bidder_id": e.bidder_id,
+                "criterion_id": e.criterion_id,
+                "extracted_value": e.extracted_value,
+                "source_text": e.source_text,
+                "source_pages": e.source_pages,
+                "confidence": e.confidence,
+                "extraction_method": e.extraction_method,
+                "extracted_at": e.extracted_at.isoformat() if e.extracted_at else None,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in evidence
+        ],
+    }
