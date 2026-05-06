@@ -1,7 +1,7 @@
 import {
   Box, Flex, Heading, Text, VStack, HStack, Button, Badge,
   Table, Thead, Tbody, Tr, Th, Td, Spinner, Alert, AlertIcon,
-  Progress,
+  Progress, Select, IconButton,
 } from '@chakra-ui/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -13,13 +13,18 @@ const fetchTenders = async () => {
 };
 
 const fetchDocuments = async (tenderId: string) => {
-  const { data } = await apiClient.get(`/tenders/${tenderId}/documents`);
+  const { data } = await apiClient.get(`/documents?tender_id=${tenderId}`);
+  return data;
+};
+
+const fetchBidders = async (tenderId: string) => {
+  const { data } = await apiClient.get(`/tenders/${tenderId}/bidders`);
   return data;
 };
 
 export const IngestionPortalPage = () => {
   const queryClient = useQueryClient();
-  const [selectedTenderId, setSelectedTenderId] = useState<string | null>(null);
+  const [selectedBidderId, setSelectedBidderId] = useState<string>('');
   const tenderInputRef = useRef<HTMLInputElement>(null);
   const bidderInputRef = useRef<HTMLInputElement>(null);
 
@@ -28,23 +33,40 @@ export const IngestionPortalPage = () => {
     queryFn: fetchTenders,
   });
 
-  const { data: documents, isLoading: docsLoading } = useQuery({
-    queryKey: ['documents', selectedTenderId],
-    queryFn: () => fetchDocuments(selectedTenderId!),
-    enabled: !!selectedTenderId,
-  });
-
   const activeTender = tenders?.[0];
 
+  const { data: bidders } = useQuery({
+    queryKey: ['bidders', activeTender?.id],
+    queryFn: () => fetchBidders(activeTender!.id),
+    enabled: !!activeTender?.id,
+  });
+
+  const { data: documents, isLoading: docsLoading } = useQuery({
+    queryKey: ['documents', activeTender?.id],
+    queryFn: () => fetchDocuments(activeTender!.id),
+    enabled: !!activeTender?.id,
+  });
+
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, tenderId, bidderId }: { file: File; tenderId: string; bidderId?: string }) => {
+    mutationFn: async ({ file, bidderId }: { file: File; bidderId?: string }) => {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('tender_id', activeTender!.id);
       if (bidderId) formData.append('bidder_id', bidderId);
-      const { data } = await apiClient.post(`/tenders/${tenderId}/documents`, formData, {
+      
+      const { data } = await apiClient.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      await apiClient.delete(`/documents/${docId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
@@ -158,8 +180,7 @@ export const IngestionPortalPage = () => {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file && activeTender) {
-                      setSelectedTenderId(activeTender.id);
-                      uploadMutation.mutate({ file, tenderId: activeTender.id });
+                      uploadMutation.mutate({ file });
                     }
                   }}
                 />
@@ -185,22 +206,58 @@ export const IngestionPortalPage = () => {
               <Heading size="md" color="brand.primary" mb="1">Bidder Documents</Heading>
               <Text fontSize="sm" color="brand.onSurfaceVariant" mb="4">Upload support files and technical appendices.</Text>
 
-              <Box
-                border="2px dashed"
-                borderColor="brand.outlineVariant"
-                p="8"
-                borderRadius="md"
-                textAlign="center"
-                cursor="pointer"
-                _hover={{ bg: 'brand.surfaceVariant' }}
-                transition="all 0.2s"
-                mb="4"
-                onClick={() => bidderInputRef.current?.click()}
-              >
-                <Box as="span" className="material-symbols-outlined" color="brand.onSurfaceVariant" fontSize="2xl">folder_zip</Box>
-                <Text fontWeight="bold" color="brand.onSurface" mt="1">Upload Batch</Text>
-                <input ref={bidderInputRef} type="file" accept=".pdf,.docx" multiple hidden />
-              </Box>
+              <VStack spacing="3" align="stretch" mb="4">
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" mb="1" letterSpacing="wider">
+                    Select Bidder (Required for Upload)
+                  </Text>
+                  <HStack>
+                    <Select
+                      placeholder="Select bidder company..."
+                      size="sm"
+                      bg="brand.surfaceContainerLow"
+                      borderColor="brand.outlineVariant"
+                      value={selectedBidderId}
+                      onChange={(e) => setSelectedBidderId(e.target.value)}
+                    >
+                      {bidders?.map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </Select>
+                  </HStack>
+                </Box>
+
+                <Box
+                  border="2px dashed"
+                  borderColor={selectedBidderId ? "brand.outlineVariant" : "gray.200"}
+                  p="8"
+                  borderRadius="md"
+                  textAlign="center"
+                  cursor={selectedBidderId ? "pointer" : "not-allowed"}
+                  opacity={selectedBidderId ? 1 : 0.5}
+                  _hover={selectedBidderId ? { bg: 'brand.surfaceVariant' } : {}}
+                  transition="all 0.2s"
+                  onClick={() => selectedBidderId && bidderInputRef.current?.click()}
+                >
+                  <Box as="span" className="material-symbols-outlined" color="brand.onSurfaceVariant" fontSize="2xl">folder_zip</Box>
+                  <Text fontWeight="bold" color="brand.onSurface" mt="1">Upload Batch</Text>
+                  <input 
+                    ref={bidderInputRef} 
+                    type="file" 
+                    accept=".pdf,.docx" 
+                    multiple 
+                    hidden 
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        Array.from(files).forEach(file => {
+                          uploadMutation.mutate({ file, bidderId: selectedBidderId });
+                        });
+                      }
+                    }}
+                  />
+                </Box>
+              </VStack>
 
               {/* Documents table */}
               {docsLoading ? (
@@ -230,7 +287,16 @@ export const IngestionPortalPage = () => {
                             </HStack>
                           </Td>
                           <Td textAlign="right" borderColor="brand.outlineVariant">
-                            <Box as="span" className="material-symbols-outlined" color="brand.onSurfaceVariant" cursor="pointer" _hover={{ color: 'brand.error' }} fontSize="sm">delete</Box>
+                            <IconButton
+                              aria-label="Delete document"
+                              variant="ghost"
+                              size="sm"
+                              color="brand.onSurfaceVariant"
+                              _hover={{ color: 'brand.error' }}
+                              icon={<Box as="span" className="material-symbols-outlined">delete</Box>}
+                              isLoading={deleteMutation.isPending && deleteMutation.variables === doc.id}
+                              onClick={() => deleteMutation.mutate(doc.id)}
+                            />
                           </Td>
                         </Tr>
                       ))}

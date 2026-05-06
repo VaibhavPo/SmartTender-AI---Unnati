@@ -122,7 +122,7 @@ async def upload_document(
         detail=f"Uploaded {file.filename} ({len(content)} bytes) - Bidder: {bidder_id or 'General'}",
     )
     db.add(audit)
-    await db.flush()
+    await db.commit()
 
     # Trigger n8n Workflow 1 — Document Ingestion
     # This is fire-and-forget. n8n will POST results back to /webhooks/ingestion-complete
@@ -311,3 +311,41 @@ async def get_page_image(
 
     logger.info(f"Rendered page {page_num} of document {document_id} ({len(image_bytes)} bytes)")
     return {"base64_image": base64.b64encode(image_bytes).decode("utf-8")}
+
+
+# ── DELETE /documents/{id} — Delete a document ──
+@router.delete("/{document_id}")
+async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    DELETE /api/v1/documents/{id}
+    Called by: React (Upload screen) when user clicks the trash icon.
+    """
+    result = await db.execute(select(DocumentDB).where(DocumentDB.id == document_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Remove from disk
+    if os.path.exists(doc.file_path):
+        try:
+            os.remove(doc.file_path)
+            logger.info(f"Deleted file from disk: {doc.file_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete file from disk: {e}")
+
+    # Write audit event
+    audit = AuditEventDB(
+        id=str(uuid.uuid4()),
+        tender_id=doc.tender_id,
+        event_type="DOCUMENT_DELETED",
+        actor="officer",
+        entity_type="document",
+        entity_id=doc.id,
+        detail=f"Deleted document: {doc.filename}",
+    )
+    db.add(audit)
+
+    await db.delete(doc)
+    await db.commit()
+
+    return {"message": "Document deleted successfully"}

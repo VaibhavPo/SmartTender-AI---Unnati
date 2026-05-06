@@ -220,7 +220,7 @@ async def confirm_criteria_and_evaluate(
         if criterion:
             criterion.status = "confirmed"
 
-    await db.flush()
+    await db.commit()
 
     # Trigger n8n Workflow 3
     try:

@@ -1,15 +1,33 @@
 import { Box, Flex, Heading, Button, HStack, Spinner, Center } from '@chakra-ui/react';
 import { DashboardBento } from '../components/organisms/DashboardBento';
 import { useQuery } from '@tanstack/react-query';
-import { fetchTenders } from '../api/client';
+import { apiClient } from '../api/client';
+
+const fetchTenders = async () => {
+  const { data } = await apiClient.get('/tenders');
+  return data;
+};
+
+const fetchEvaluationData = async (tenderId: string) => {
+  const { data } = await apiClient.get(`/tenders/${tenderId}/evaluation-data`);
+  return data;
+};
 
 export const DashboardPage = () => {
-  const { data: tenders, isLoading } = useQuery({
+  const { data: tenders, isLoading: tendersLoading } = useQuery({
     queryKey: ['tenders'],
     queryFn: fetchTenders
   });
 
-  if (isLoading) {
+  const activeTender = tenders?.[0];
+
+  const { data: evalData, isLoading: evalLoading } = useQuery({
+    queryKey: ['evaluation-data', activeTender?.id],
+    queryFn: () => fetchEvaluationData(activeTender!.id),
+    enabled: !!activeTender?.id,
+  });
+
+  if (tendersLoading || evalLoading) {
     return (
       <Center h="50vh">
         <Spinner size="xl" color="brand.primary" thickness="4px" />
@@ -25,7 +43,7 @@ export const DashboardPage = () => {
             Evaluation Overview
           </Heading>
           <Box color="brand.onSurfaceVariant" fontSize="lg">
-            {tenders?.length ? `Monitoring Tender: ${tenders[0].name}` : 'Monitoring Workflow 3.4: Automated Evidence Validation'}
+            {activeTender ? `Monitoring Tender: ${activeTender.name}` : 'No Active Tender'}
           </Box>
         </Box>
         <HStack spacing="2">
@@ -38,7 +56,7 @@ export const DashboardPage = () => {
         </HStack>
       </Flex>
 
-      <DashboardBento />
+      <DashboardBento data={evalData} />
     </Box>
   );
 };

@@ -388,6 +388,7 @@ async def evaluation_complete(
         detail=f"All verdicts rendered. Total: {body.total_verdicts}",
     )
     db.add(audit)
+    await db.commit()
 
     logger.info(
         f"Evaluation complete for tender {body.tender_id}: "

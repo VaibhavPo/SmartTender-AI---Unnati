@@ -1,8 +1,10 @@
-import { Box, Flex, VStack, Text, HStack, Button, Link } from '@chakra-ui/react';
+import { Box, Flex, VStack, Text, HStack, Button, Link, Skeleton } from '@chakra-ui/react';
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../api/client';
 
 const navItems = [
-  { icon: 'dashboard', label: 'Dashboard', to: '/dashboard' },
+  { icon: 'dashboard', label: 'Evaluation Dashboard', to: '/dashboard' },
   { icon: 'upload_file', label: 'Ingestion Portal', to: '/upload' },
   { icon: 'fact_check', label: 'Criteria Review', to: '/review' },
   { icon: 'rate_review', label: 'Manual Review', to: '/manual-review' },
@@ -10,8 +12,20 @@ const navItems = [
   { icon: 'history', label: 'Audit Logs', to: '/audit' },
 ];
 
+const fetchTenders = async () => {
+  const { data } = await apiClient.get('/tenders');
+  return data;
+};
+
 export const SideNavBar = () => {
   const { pathname } = useLocation();
+
+  const { data: tenders, isLoading } = useQuery({
+    queryKey: ['tenders'],
+    queryFn: fetchTenders,
+  });
+
+  const activeTender = tenders?.[0];
 
   return (
     <Box
@@ -50,19 +64,28 @@ export const SideNavBar = () => {
             </Box>
           </Flex>
           <Box minW="0">
-            <Text
-              fontSize="xs"
-              color="brand.onSurfaceVariant"
-              textTransform="uppercase"
-              letterSpacing="wider"
-              fontWeight="bold"
-              noOfLines={1}
-            >
-              Tender-2024-081
-            </Text>
-            <Text fontSize="sm" color="brand.secondary" noOfLines={1}>
-              Federal Procurement Div
-            </Text>
+            {isLoading ? (
+              <VStack align="start" spacing="1">
+                <Skeleton h="3" w="24" />
+                <Skeleton h="3" w="16" />
+              </VStack>
+            ) : (
+              <>
+                <Text
+                  fontSize="xs"
+                  color="brand.onSurfaceVariant"
+                  textTransform="uppercase"
+                  letterSpacing="wider"
+                  fontWeight="bold"
+                  noOfLines={1}
+                >
+                  {activeTender?.reference_number || (activeTender ? `TENDER-${activeTender.id.slice(0, 8).toUpperCase()}` : 'No Active Tender')}
+                </Text>
+                <Text fontSize="sm" color="brand.secondary" noOfLines={1} fontWeight="medium">
+                  {activeTender?.name || 'SmartTender AI'}
+                </Text>
+              </>
+            )}
           </Box>
         </HStack>
       </Box>

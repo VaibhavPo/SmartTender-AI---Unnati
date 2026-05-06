@@ -1,45 +1,111 @@
 import {
   Box, Flex, Heading, Text, HStack, VStack, Button, Badge,
-  Table, Thead, Tbody, Tr, Th, Td, Spinner, Textarea, Select, Input,
-  InputGroup, InputRightElement,
+  Table, Thead, Tbody, Tr, Th, Td, Spinner, Select, Input,
+  InputGroup, InputLeftElement, IconButton, useToast,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter,
+  ModalBody, ModalCloseButton, useDisclosure, Textarea
 } from '@chakra-ui/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
-const fetchPendingVerdicts = async () => {
-  const { data } = await apiClient.get('/verdicts?verdict=MANUAL_REVIEW');
+const fetchTenders = async () => {
+  const { data } = await apiClient.get('/tenders');
+  return data;
+};
+
+const fetchEvaluationData = async (tenderId: string) => {
+  const { data } = await apiClient.get(`/tenders/${tenderId}/evaluation-data`);
   return data;
 };
 
 export const ManualReviewPage = () => {
   const queryClient = useQueryClient();
-  const [notes, setNotes] = useState('');
-  const [selectedVerdict, setSelectedVerdict] = useState<string | null>(null);
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [selectedVerdict, setSelectedVerdict] = useState<any>(null);
+  const [overrideVerdict, setOverrideVerdict] = useState<'OFFICER_APPROVED' | 'OFFICER_REJECTED' | null>(null);
+  const [justification, setJustification] = useState('');
+  const [bidderFilter, setBidderFilter] = useState('');
 
-  const { data: verdicts, isLoading } = useQuery({
-    queryKey: ['verdicts', 'manual'],
-    queryFn: fetchPendingVerdicts,
+  const { data: tenders, isLoading: tendersLoading } = useQuery({
+    queryKey: ['tenders'],
+    queryFn: fetchTenders,
+  });
+
+  const activeTender = tenders?.[0];
+
+  const { data: evalData, isLoading: evalLoading } = useQuery({
+    queryKey: ['evaluation-data', activeTender?.id],
+    queryFn: () => fetchEvaluationData(activeTender!.id),
+    enabled: !!activeTender?.id,
   });
 
   const overrideMutation = useMutation({
-    mutationFn: async ({ verdictId, status }: { verdictId: string; status: string }) => {
-      const { data } = await apiClient.post(`/verdicts/${verdictId}/override`, {
-        verdict: status,
-        reason: notes,
-        decided_by: 'officer',
+    mutationFn: async () => {
+      const { data } = await apiClient.post('/verdicts/override', {
+        verdict_id: selectedVerdict.id,
+        new_verdict: overrideVerdict,
+        justification: justification,
       });
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['verdicts', 'manual'] });
-      setNotes('');
-      setSelectedVerdict(null);
+      queryClient.invalidateQueries({ queryKey: ['evaluation-data'] });
+      toast({
+        title: 'Verdict Submitted',
+        description: `Successfully overrode verdict for ${selectedVerdict.bidder_name}`,
+        status: 'success',
+        duration: 3000,
+      });
+      handleCloseModal();
     },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.detail || 'Failed to submit verdict',
+        status: 'error',
+        duration: 5000,
+      });
+    }
   });
 
-  if (isLoading) {
+  const manualVerdicts = useMemo(() => {
+    if (!evalData) return [];
+    
+    return evalData.verdicts
+      .filter((v: any) => v.verdict === 'MANUAL_REVIEW')
+      .map((v: any) => {
+        const bidder = evalData.bidders.find((b: any) => b.id === v.bidder_id);
+        const criterion = evalData.criteria.find((c: any) => c.id === v.criterion_id);
+        const evidence = evalData.evidence.find((e: any) => e.bidder_id === v.bidder_id && e.criterion_id === v.criterion_id);
+        
+        return {
+          ...v,
+          bidder_name: bidder?.name || 'Unknown',
+          criterion_name: criterion?.name || 'Unknown',
+          criterion_description: criterion?.description || '',
+          source_text: evidence?.source_text || 'No evidence extracted',
+        };
+      })
+      .filter((v: any) => 
+        bidderFilter === '' || v.bidder_name.toLowerCase().includes(bidderFilter.toLowerCase())
+      );
+  }, [evalData, bidderFilter]);
+
+  const handleOpenModal = (v: any) => {
+    setSelectedVerdict(v);
+    onOpen();
+  };
+
+  const handleCloseModal = () => {
+    onClose();
+    setSelectedVerdict(null);
+    setOverrideVerdict(null);
+    setJustification('');
+  };
+
+  if (tendersLoading || evalLoading) {
     return (
       <Flex h="50vh" align="center" justify="center">
         <Spinner size="xl" color="brand.primary" thickness="4px" />
@@ -47,211 +113,191 @@ export const ManualReviewPage = () => {
     );
   }
 
-  const current = verdicts?.[currentIdx];
-
   return (
-    <Box h="calc(100vh - 64px)" display="flex" flexDirection="column" overflow="hidden">
-      {/* Header strip */}
-      <Flex
-        bg="brand.surfaceContainerHighest"
-        px="6"
-        py="3"
-        align="center"
-        justify="space-between"
-        borderBottom="1px"
-        borderColor="brand.outlineVariant"
-        flexShrink={0}
-      >
-        <HStack spacing="4">
-          <Heading size="md" color="brand.primary" textTransform="uppercase" letterSpacing="tight">
+    <Box maxW="1400px" mx="auto">
+      {/* Header */}
+      <Flex justify="space-between" align="center" mb="6">
+        <Box>
+          <Heading size="lg" color="brand.primary" fontFamily="heading">
             Manual Review Queue
           </Heading>
-          <Box w="px" h="4" bg="brand.outlineVariant" />
-          <HStack spacing="2" color="brand.onSurfaceVariant">
-            <Box as="span" className="material-symbols-outlined" fontSize="18px">assignment</Box>
-            <Text fontSize="sm" fontWeight="bold">
-              {current ? `TASK ID: ${current.id?.slice(-8)?.toUpperCase()}` : 'No tasks pending'}
-            </Text>
-          </HStack>
+          <Text fontSize="sm" color="brand.onSurfaceVariant" mt="1">
+            Review and resolve compliance ambiguities identified by AI.
+          </Text>
+        </Box>
+        <HStack bg="brand.surfaceContainer" p="2" borderRadius="md" border="1px" borderColor="brand.outlineVariant">
+          <Box as="span" className="material-symbols-outlined" color="brand.primary">pending_actions</Box>
+          <Text fontWeight="bold" color="brand.onSurface">{manualVerdicts.length} Tasks Pending</Text>
         </HStack>
-        {current && (
-          <Flex align="center" gap="2" bg="brand.errorContainer" color="brand.onErrorContainer" px="3" py="1" border="1px" borderColor="brand.error" borderRadius="md" opacity="0.8">
-            <Box as="span" className="material-symbols-outlined" fontSize="18px">report_problem</Box>
-            <Text fontSize="xs" fontWeight="bold" textTransform="uppercase">
-              THRESHOLD AMBIGUITY: Confidence &lt; 80%
-            </Text>
-          </Flex>
-        )}
       </Flex>
 
-      {!current ? (
-        <Flex flex="1" align="center" justify="center" direction="column" gap="4">
-          <Box as="span" className="material-symbols-outlined" color="brand.primary" fontSize="64px" style={{ fontVariationSettings: "'FILL' 1" }}>
-            task_alt
-          </Box>
-          <Text fontSize="xl" fontWeight="bold" color="brand.onSurface">All Reviews Complete!</Text>
-          <Text color="brand.onSurfaceVariant">No items currently require manual intervention.</Text>
+      {/* Filters */}
+      <Box bg="brand.surfaceContainer" p="4" borderRadius="md" border="1px" borderColor="brand.outlineVariant" mb="6">
+        <Flex gap="4">
+          <InputGroup maxW="xs">
+            <InputLeftElement pointerEvents="none">
+              <Box as="span" className="material-symbols-outlined" color="brand.onSurfaceVariant">search</Box>
+            </InputLeftElement>
+            <Input 
+              placeholder="Filter by bidder name..." 
+              bg="brand.surfaceContainerLow"
+              value={bidderFilter}
+              onChange={(e) => setBidderFilter(e.target.value)}
+            />
+          </InputGroup>
+          <Select placeholder="Filter by status" maxW="xs" bg="brand.surfaceContainerLow">
+            <option value="all">All Manual Reviews</option>
+            <option value="high">High Confidence</option>
+            <option value="low">Low Confidence</option>
+          </Select>
         </Flex>
-      ) : (
-        <Flex flex="1" overflow="hidden">
-          {/* Left: Evidence panel */}
-          <Box w="50%" borderRight="1px" borderColor="brand.outlineVariant" bg="brand.surfaceContainer" overflowY="auto" p="6">
+      </Box>
+
+      {/* Table */}
+      <Box bg="brand.surfaceContainer" border="1px" borderColor="brand.outlineVariant" borderRadius="md" overflow="hidden">
+        <Table variant="simple" size="sm">
+          <Thead bg="brand.surfaceContainerHigh">
+            <Tr>
+              <Th color="brand.onSurfaceVariant" borderColor="brand.outlineVariant">Bidder</Th>
+              <Th color="brand.onSurfaceVariant" borderColor="brand.outlineVariant">Criteria</Th>
+              <Th color="brand.onSurfaceVariant" borderColor="brand.outlineVariant" w="30%">Criteria Description</Th>
+              <Th color="brand.onSurfaceVariant" borderColor="brand.outlineVariant" w="20%">LLM Reason</Th>
+              <Th color="brand.onSurfaceVariant" borderColor="brand.outlineVariant" w="20%">Source Evidence</Th>
+              <Th color="brand.onSurfaceVariant" borderColor="brand.outlineVariant" textAlign="right">Action</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {manualVerdicts.length > 0 ? (
+              manualVerdicts.map((v: any) => (
+                <Tr key={v.id} _hover={{ bg: 'brand.surfaceContainerLow' }} transition="all 0.1s">
+                  <Td borderColor="brand.outlineVariant" fontWeight="bold" color="brand.onSurface">
+                    {v.bidder_name}
+                  </Td>
+                  <Td borderColor="brand.outlineVariant">
+                    <Badge colorScheme="blue" variant="subtle" px="2" py="0.5" borderRadius="sm">
+                      {v.criterion_name}
+                    </Badge>
+                  </Td>
+                  <Td borderColor="brand.outlineVariant">
+                    <Text fontSize="xs" color="brand.onSurfaceVariant" noOfLines={3}>
+                      {v.criterion_description}
+                    </Text>
+                  </Td>
+                  <Td borderColor="brand.outlineVariant">
+                    <Text fontSize="xs" color="brand.primary" fontWeight="medium" noOfLines={3}>
+                      {v.reason}
+                    </Text>
+                  </Td>
+                  <Td borderColor="brand.outlineVariant">
+                    <Box bg="brand.surfaceContainerLow" p="2" borderRadius="sm" border="1px" borderColor="brand.outlineVariant">
+                      <Text fontSize="10px" fontStyle="italic" color="brand.onSurface" noOfLines={3}>
+                        "{v.source_text}"
+                      </Text>
+                    </Box>
+                  </Td>
+                  <Td borderColor="brand.outlineVariant" textAlign="right">
+                    <Button 
+                      size="xs" 
+                      variant="solid" 
+                      onClick={() => handleOpenModal(v)}
+                      leftIcon={<Box as="span" className="material-symbols-outlined" fontSize="14px">edit_note</Box>}
+                    >
+                      Review
+                    </Button>
+                  </Td>
+                </Tr>
+              ))
+            ) : (
+              <Tr>
+                <Td colSpan={6} textAlign="center" py="10">
+                  <VStack spacing="2">
+                    <Box as="span" className="material-symbols-outlined" fontSize="48px" color="brand.outlineVariant">check_circle</Box>
+                    <Text fontWeight="bold" color="brand.onSurfaceVariant">No Manual Reviews Found</Text>
+                    <Text fontSize="sm" color="brand.outline">All AI verdicts are within confidence thresholds.</Text>
+                  </VStack>
+                </Td>
+              </Tr>
+            )}
+          </Tbody>
+        </Table>
+      </Box>
+
+      {/* Review Modal */}
+      <Modal isOpen={isOpen} onClose={handleCloseModal} size="xl">
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="brand.surfaceContainerLow" border="1px" borderColor="brand.outlineVariant">
+          <ModalHeader color="brand.primary">Submit Officer Verdict</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
             <VStack spacing="4" align="stretch">
-              {/* AI recommendation */}
-              <Box bg="brand.surfaceContainerHigh" borderLeft="4px solid" borderColor="brand.primary" p="4" borderRadius="0 md md 0" shadow="sm">
-                <HStack spacing="2" mb="2">
-                  <Box as="span" className="material-symbols-outlined" color="brand.primary">psychology</Box>
-                  <Text fontSize="xs" fontWeight="bold" color="brand.primary" textTransform="uppercase">AI Recommendation</Text>
+              <Box p="4" bg="brand.surfaceContainer" borderRadius="md" border="1px" borderColor="brand.outlineVariant">
+                <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" mb="2">Context</Text>
+                <HStack justify="space-between" mb="1">
+                  <Text fontSize="sm" fontWeight="bold">Bidder:</Text>
+                  <Text fontSize="sm">{selectedVerdict?.bidder_name}</Text>
                 </HStack>
-                <Text color="brand.onSurface">{current.reason}</Text>
-                <HStack spacing="6" mt="3">
-                  <Box>
-                    <Text fontSize="xs" color="brand.onSurfaceVariant">Inferred Value:</Text>
-                    <Text fontFamily="mono" fontWeight="bold" color="brand.primary">{current.verdict}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="brand.onSurfaceVariant">AI Certainty:</Text>
-                    <Text fontFamily="mono" fontWeight="bold" color="brand.error">{Math.round(current.confidence * 100)}%</Text>
-                  </Box>
-                </HStack>
-              </Box>
-
-              {/* Evidence snippets */}
-              <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" borderBottom="1px" borderColor="brand.outlineVariant" pb="1">
-                Extracted Evidence
-              </Text>
-              <Box p="4" border="1px" borderColor="brand.primary" bg="whiteAlpha.50" borderRadius="md" position="relative" overflow="hidden">
-                <Box position="absolute" top="0" right="0" bg="brand.error" color="brand.onError" fontSize="10px" px="3" py="1" fontWeight="bold" textTransform="uppercase">
-                  CRITICAL CONFLICT
-                </Box>
-                <Flex justify="space-between" mb="2">
-                  <Text fontSize="sm" fontWeight="bold" color="brand.primary">Source Evidence</Text>
-                  <Text fontSize="11px" color="brand.onSurfaceVariant" fontFamily="mono">Criterion: {current.criterion_id?.slice(-8)}</Text>
-                </Flex>
-                <Box bg="brand.surfaceContainerLow" p="3" borderLeft="2px solid" borderColor="brand.primary" borderRadius="0 md md 0">
-                  <Text fontStyle="italic" color="brand.onSurface" fontSize="sm">
-                    "{current.reason || 'AI could not extract a conclusive value. Manual verification required.'}"
-                  </Text>
-                </Box>
-              </Box>
-
-              {/* Navigation between verdicts */}
-              {verdicts.length > 1 && (
                 <HStack justify="space-between">
-                  <Button size="sm" variant="outline" onClick={() => setCurrentIdx(i => Math.max(0, i - 1))} isDisabled={currentIdx === 0}>← Previous</Button>
-                  <Text fontSize="sm" color="brand.onSurfaceVariant">{currentIdx + 1} / {verdicts.length}</Text>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentIdx(i => Math.min(verdicts.length - 1, i + 1))} isDisabled={currentIdx === verdicts.length - 1}>Next →</Button>
+                  <Text fontSize="sm" fontWeight="bold">Criteria:</Text>
+                  <Text fontSize="sm">{selectedVerdict?.criterion_name}</Text>
                 </HStack>
-              )}
-            </VStack>
-          </Box>
-
-          {/* Right: Document preview placeholder */}
-          <Box w="50%" bg="brand.surfaceContainerLowest" position="relative" overflow="hidden">
-            <Flex position="absolute" top="4" left="50%" transform="translateX(-50%)" zIndex="10" align="center" gap="4" bg="brand.surfaceContainerHighest" color="brand.onSurface" px="4" py="2" borderRadius="full" shadow="xl" border="1px" borderColor="brand.outlineVariant">
-              <Box as="span" className="material-symbols-outlined" cursor="pointer" _hover={{ color: 'brand.primary' }}>zoom_out</Box>
-              <Text fontFamily="mono" fontSize="sm">100% | Page 1 of 1</Text>
-              <Box as="span" className="material-symbols-outlined" cursor="pointer" _hover={{ color: 'brand.primary' }}>zoom_in</Box>
-              <Box w="px" h="4" bg="brand.outlineVariant" />
-              <Box as="span" className="material-symbols-outlined" cursor="pointer" _hover={{ color: 'brand.primary' }}>file_download</Box>
-            </Flex>
-            <Flex flex="1" h="full" justify="center" pt="20" px="6">
-              <Box w="85%" bg="gray.50" shadow="2xl" minH="600px" p="12" border="1px" borderColor="brand.outlineVariant" borderRadius="md" position="relative">
-                <VStack spacing="4" align="start" opacity="0.3">
-                  <Box h="8" w="60%" bg="gray.300" borderRadius="sm" />
-                  <Box h="4" w="full" bg="gray.200" borderRadius="sm" />
-                  <Box h="4" w="full" bg="gray.200" borderRadius="sm" />
-                  <Box h="4" w="75%" bg="gray.200" borderRadius="sm" />
-                  <Box h="8" w="40%" bg="gray.300" borderRadius="sm" mt="8" />
-                  <Box h="4" w="full" bg="gray.200" borderRadius="sm" />
-                  <Box h="4" w="full" bg="gray.200" borderRadius="sm" />
-                  <Box h="10" w="full" bg="white" border="1px dashed" borderColor="blue.400" display="flex" alignItems="center" px="4">
-                    <Text fontSize="sm" fontWeight="bold" color="blue.500">EVIDENCE SECTION</Text>
-                  </Box>
-                </VStack>
-                <Text position="absolute" bottom="4" right="8" fontSize="xs" color="gray.400">OFFICIAL PROCUREMENT DOCUMENT</Text>
               </Box>
-            </Flex>
-          </Box>
-        </Flex>
-      )}
 
-      {/* Footer verdict panel */}
-      {current && (
-        <Box bg="brand.surfaceContainerHigh" borderTop="1px" borderColor="brand.outlineVariant" shadow="2xl" p="6" flexShrink={0}>
-          <Flex direction={{ base: 'column', lg: 'row' }} align="flex-end" gap="6" maxW="7xl" mx="auto">
-            <Box flex="1" w="full">
-              <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" mb="2">
-                Adjudicator Comments &amp; Audit Trail Notes
-              </Text>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                h="24"
-                placeholder="Enter justification for the final verdict. Include references to federal guidelines if overruling AI recommendation..."
-                bg="brand.surfaceContainerLow"
-                border="1px"
-                borderColor="brand.outlineVariant"
-                color="brand.onSurface"
-                _focus={{ borderColor: 'brand.primary', ring: '1px', ringColor: 'brand.primary' }}
-                resize="none"
-              />
-            </Box>
-            <Box>
-              <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" textAlign="right" mb="3">
-                Verdict Selection
-              </Text>
-              <HStack spacing="3" flexWrap="wrap">
-                <Button
-                  variant="outline"
-                  borderColor="brand.outline"
-                  color="brand.onSurfaceVariant"
-                  leftIcon={<Box as="span" className="material-symbols-outlined">help</Box>}
-                >
-                  Request Info
-                </Button>
-                <Button
-                  border="2px solid"
-                  borderColor="brand.error"
-                  color="brand.error"
-                  bg="transparent"
-                  onClick={() => setSelectedVerdict('OFFICER_REJECTED')}
-                  _hover={{ bg: 'brand.error', color: 'brand.onError' }}
-                  fontWeight="bold"
-                  leftIcon={<Box as="span" className="material-symbols-outlined">close</Box>}
-                >
-                  Fail
-                </Button>
-                <Button
-                  border="2px solid"
-                  borderColor="brand.primary"
-                  color="brand.primary"
-                  bg="transparent"
-                  onClick={() => setSelectedVerdict('OFFICER_APPROVED')}
-                  _hover={{ bg: 'brand.primary', color: 'brand.onPrimary' }}
-                  fontWeight="bold"
-                  leftIcon={<Box as="span" className="material-symbols-outlined">check</Box>}
-                >
-                  Pass
-                </Button>
-                <Button
-                  variant="solid"
-                  px="8"
-                  shadow="lg"
-                  isDisabled={!selectedVerdict}
-                  isLoading={overrideMutation.isPending}
-                  onClick={() => selectedVerdict && overrideMutation.mutate({ verdictId: current.id, status: selectedVerdict })}
-                >
-                  Submit Verdict
-                </Button>
-              </HStack>
-              <Text fontSize="10px" color="brand.onSurfaceVariant" fontStyle="italic" textAlign="right" mt="2">
-                Verdict will trigger Workflow 4: Compliance Validation Update.
-              </Text>
-            </Box>
-          </Flex>
-        </Box>
-      )}
+              <Box>
+                <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" mb="2">Source Evidence</Text>
+                <Box bg="whiteAlpha.50" p="3" borderRadius="md" borderLeft="4px solid" borderColor="brand.primary">
+                  <Text fontSize="sm" fontStyle="italic">"{selectedVerdict?.source_text}"</Text>
+                </Box>
+              </Box>
+
+              <Box>
+                <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" mb="2">Verdict Selection</Text>
+                <HStack spacing="4">
+                  <Button 
+                    flex="1" 
+                    variant={overrideVerdict === 'OFFICER_APPROVED' ? 'solid' : 'outline'}
+                    colorScheme={overrideVerdict === 'OFFICER_APPROVED' ? 'green' : 'gray'}
+                    onClick={() => setOverrideVerdict('OFFICER_APPROVED')}
+                    leftIcon={<Box as="span" className="material-symbols-outlined">check</Box>}
+                  >
+                    Pass
+                  </Button>
+                  <Button 
+                    flex="1" 
+                    variant={overrideVerdict === 'OFFICER_REJECTED' ? 'solid' : 'outline'}
+                    colorScheme={overrideVerdict === 'OFFICER_REJECTED' ? 'red' : 'gray'}
+                    onClick={() => setOverrideVerdict('OFFICER_REJECTED')}
+                    leftIcon={<Box as="span" className="material-symbols-outlined">close</Box>}
+                  >
+                    Fail
+                  </Button>
+                </HStack>
+              </Box>
+
+              <Box>
+                <Text fontSize="xs" fontWeight="bold" color="brand.onSurfaceVariant" textTransform="uppercase" mb="2">Justification (Audit Requirement)</Text>
+                <Textarea 
+                  placeholder="Explain why you are passing/failing this bidder..."
+                  value={justification}
+                  onChange={(e) => setJustification(e.target.value)}
+                  bg="brand.surfaceContainer"
+                  fontSize="sm"
+                  h="24"
+                />
+              </Box>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={handleCloseModal}>Cancel</Button>
+            <Button 
+              isDisabled={!overrideVerdict || justification.length < 10}
+              isLoading={overrideMutation.isPending}
+              onClick={() => overrideMutation.mutate()}
+            >
+              Confirm Verdict
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

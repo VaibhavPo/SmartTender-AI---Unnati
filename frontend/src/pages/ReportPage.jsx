@@ -186,7 +186,6 @@ export default function ReportPage() {
                     const { pass, fail, review, total } = bidder.summary;
                     const pending = total - (pass + fail + review);
                     const score = total > 0 ? ((pass / total) * 100).toFixed(0) : 0;
-                    const qualified = fail === 0 && review === 0 && pending === 0;
 
                     return (
                       <tr key={bidder.id}>
@@ -199,12 +198,12 @@ export default function ReportPage() {
                           <span className="font-heading font-black text-brand-500">{score}%</span>
                         </td>
                         <td className="text-center">
-                          {pending > 0 ? (
-                            <span className="badge-review">Pending</span>
-                          ) : qualified ? (
-                            <span className="badge-pass">Qualified</span>
-                          ) : (
+                          {fail > 0 ? (
                             <span className="badge-fail">Disqualified</span>
+                          ) : (review > 0 || pending > 0) ? (
+                            <span className="badge-review">Pending</span>
+                          ) : (
+                            <span className="badge-pass">Qualified</span>
                           )}
                         </td>
                       </tr>

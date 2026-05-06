@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react";
 import { useEffect, useMemo, useState } from "react";
 import { documentApi, tenderApi } from "../api/client";
+import { useNavigate } from "react-router-dom";
 import type { BidderResponse, StructuredDocumentObject, TenderResponse } from "../types/backend";
 import { StatusBadge } from "../components/atoms/StatusBadge";
 import { StitchCard } from "../components/atoms/StitchCard";
@@ -20,6 +21,7 @@ import { StitchInput } from "../components/atoms/StitchInput";
 
 export function UploadPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const { tenders, activeTenderId, setActiveTenderId, refreshTenders } = useOfficer();
 
   const [bidders, setBidders] = useState<BidderResponse[]>([]);
@@ -282,6 +284,15 @@ export function UploadPage() {
                     </Text>
                   </Flex>
                   <StatusBadge status={d.status} />
+                  {!d.bidder_id && d.status === "completed" && (
+                    <Button
+                      size="xs"
+                      variant="primary"
+                      onClick={() => navigate("/criteria")}
+                    >
+                      Extract Criteria
+                    </Button>
+                  )}
                 </Flex>
               ))
             )}

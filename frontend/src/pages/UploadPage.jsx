@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { tenderApi, documentApi } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import { useTender } from "../App";
@@ -29,6 +30,7 @@ import {
 
 export default function UploadPage({ initialTab }) {
   const { activeTender, setActiveTender, tenders, setTenders } = useTender();
+  const navigate = useNavigate();
   const [bidders, setBidders] = useState([]);
   const [tenderDocs, setTenderDocs] = useState([]);
   const [bidderDocs, setBidderDocs] = useState([]);
@@ -179,19 +181,30 @@ export default function UploadPage({ initialTab }) {
 
   const handleBidderDocUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !activeTender) return;
+    if (!file || !activeTender || !selectedBidder) return;
     setBidderUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("tender_id", activeTender.id);
-      if (selectedBidder) formData.append("bidder_id", selectedBidder);
+      formData.append("bidder_id", selectedBidder);
       const { data } = await documentApi.upload(formData);
       setBidderDocs((prev) => [...prev, data]);
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
     } finally {
       setBidderUploading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!window.confirm("Are you sure you want to delete this document?")) return;
+    try {
+      await documentApi.delete(docId);
+      setTenderDocs(prev => prev.filter(d => d.id !== docId));
+      setBidderDocs(prev => prev.filter(d => d.id !== docId));
+    } catch (err) {
+      alert(`Delete failed: ${err.message}`);
     }
   };
 
@@ -391,6 +404,26 @@ export default function UploadPage({ initialTab }) {
                     </p>
                   </div>
                   <StatusBadge status={doc.status} />
+                  {doc.status === "completed" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/criteria");
+                      }}
+                      className="ml-2 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-bold rounded-lg transition-colors shadow-sm whitespace-nowrap"
+                    >
+                      Extract Criteria
+                    </button>
+                  )}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteDocument(doc.id);
+                    }}
+                    className="ml-2 p-1.5 text-surface-400 hover:text-danger-500 transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -423,15 +456,19 @@ export default function UploadPage({ initialTab }) {
           <div className="flex items-center gap-3 mb-4">
             {bidders.length > 0 && (
               <select value={selectedBidder} onChange={(e) => setSelectedBidder(e.target.value)} className="select-field flex-1 text-xs">
-                <option value="">General tender document</option>
+                <option value="">Select bidder for upload...</option>
                 {bidders.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
             )}
             <div
-              onClick={() => !bidderUploading && bidderFileRef.current?.click()}
-              className="border-2 border-dashed rounded-lg px-6 py-4 text-center cursor-pointer transition-all border-surface-400/40 dark:border-white/10 hover:border-brand-400/40 hover:bg-surface-200/40 dark:hover:bg-white/[0.03] flex-1"
+              onClick={() => !bidderUploading && selectedBidder && bidderFileRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg px-6 py-4 text-center transition-all flex-1 ${
+                selectedBidder 
+                  ? "border-surface-400/40 dark:border-white/10 hover:border-brand-400/40 hover:bg-surface-200/40 dark:hover:bg-white/[0.03] cursor-pointer" 
+                  : "border-surface-200 dark:border-white/5 opacity-50 cursor-not-allowed"
+              }`}
             >
               <input ref={bidderFileRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.docx" onChange={handleBidderDocUpload} className="hidden" />
               <div className="flex flex-col items-center gap-1.5">
@@ -470,7 +507,10 @@ export default function UploadPage({ initialTab }) {
                         </div>
                       </td>
                       <td className="text-center">
-                        <button className="text-surface-400 dark:text-gray-600 hover:text-danger-500 transition-colors">
+                        <button 
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="text-surface-400 dark:text-gray-600 hover:text-danger-500 transition-colors"
+                        >
                           <Trash2 size={14} />
                         </button>
                       </td>

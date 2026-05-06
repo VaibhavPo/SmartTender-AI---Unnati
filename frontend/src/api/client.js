@@ -69,6 +69,7 @@ export const documentApi = {
     if (bidderId) params.bidder_id = bidderId;
     return api.get("/documents", { params });
   },
+  delete: (id) => api.delete(`/documents/${id}`),
 };
 
 export const criteriaApi = {

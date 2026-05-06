@@ -59,7 +59,8 @@ const topTabs = [
 
 // Left sidebar items — tender-specific navigation
 const sidebarItems = [
-  { path: "/", label: "Current Tender", Icon: FolderOpen },
+  { path: "/evaluation", label: "Evaluation Dashboard", Icon: BarChart3 },
+  { path: "/", label: "Ingestion Portal", Icon: FolderOpen },
   { path: "/bidder-docs", label: "Bidder Documents", Icon: Users },
   { path: "/criteria", label: "Compliance Matrix", Icon: CheckSquare },
   { path: "/review", label: "Manual Review", Icon: Eye },
@@ -193,11 +194,11 @@ function LeftSidebar() {
   return (
     <nav className="w-52 bg-white dark:bg-[#0F172A] border-r border-black/[0.08] dark:border-white/[0.08] flex flex-col">
       <div className="px-4 py-4 border-b border-black/[0.06] dark:border-white/[0.06]">
-        <p className="text-[11px] font-bold text-brand-500 dark:text-brand-300 tracking-wide">
+        <p className="text-[11px] font-bold text-brand-500 dark:text-brand-300 tracking-wide uppercase">
           {activeTender ? (activeTender.reference_number || `TENDER-${activeTender.id?.slice(0, 8)?.toUpperCase()}`) : "NO TENDER"}
         </p>
-        <p className="text-[10px] text-surface-500 dark:text-gray-500 mt-0.5">
-          Federal Procurement Div
+        <p className="text-[10px] text-surface-500 dark:text-gray-500 mt-0.5 truncate font-medium">
+          {activeTender?.name || "SmartTender AI"}
         </p>
       </div>
 
