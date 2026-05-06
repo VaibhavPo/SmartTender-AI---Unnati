@@ -1,0 +1,89 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smarttender
+      POSTGRES_PASSWORD: smarttender_dev
+      POSTGRES_DB: smarttender
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  docling:
+    build:
+      context: ./docling
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://smarttender:smarttender_dev@postgres:5432/smarttender
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION: tender_docs
+      QDRANT_VECTOR_SIZE: 768
+      MODEL_RUNNER_BASE_URL: http://model-runner.docker.internal/engines/llama.cpp/v1
+      DOCLING_HOST: docling
+      DOCLING_PORT: 8001
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      UPLOAD_DIR: /app/uploads
+      REPORT_DIR: /app/reports
+      LOG_LEVEL: INFO
+      N8N_WEBHOOK_BASE_URL: http://localhost:5678/webhook
+    volumes:
+      - uploads:/app/uploads
+      - reports:/app/reports
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+      - docling
+
+volumes:
+  pgdata:
+    driver: local
+  qdrantdata:
+    driver: local
+  redisdata:
+    driver: local
+  uploads:
+    driver: local
+  reports:
+    driver: local

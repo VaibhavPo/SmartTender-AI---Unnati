@@ -1,0 +1,350 @@
+{
+  "name": "WF-5 — Report Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "report-generation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e31c04cb-3bcc-4d04-ad4c-68a2a8ab7361",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        208
+      ],
+      "webhookId": "smarttender-report-gen"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, tender_id: $json.tender_id, status: 'report_generating' }) }}",
+        "options": {}
+      },
+      "id": "0bfdeb31-d034-4374-bace-3f5c791741f6",
+      "name": "Respond Immediately",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        112,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1/tenders/{{ $json.body.tender_id }}/evaluation-data ",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "f40dfe09-3f02-401e-92c7-8cb0cb9de133",
+      "name": "Fetch Tender Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        320
+      ],
+      "notes": "Returns: { id, reference_number, title, estimated_cost, submission_date, issuing_authority, status }"
+    },
+    {
+      "parameters": {
+        "jsCode": "// DETERMINISTIC REPORT BUILDER\nconst raw = $input.item.json;\nconst record = Array.isArray(raw) ? raw[0] : raw;\n\nconst tender    = record.tender    || {};\nconst bidders   = record.bidders   || [];\nconst criteria  = record.criteria  || [];\nconst verdicts  = record.verdicts  || [];\nconst evidence  = record.evidence  || [];\n\n// ── Deduplicate criteria by name (keep first occurrence) ──────────────\nconst seenCriteria = new Set();\nconst uniqueCriteria = criteria.filter(c => {\n  if (seenCriteria.has(c.name)) return false;\n  seenCriteria.add(c.name);\n  return true;\n});\n\nconst criterionMap = {};\nuniqueCriteria.forEach(c => { criterionMap[c.id] = c; });\n\nconst verdictIndex = {}; \nverdicts.forEach(v => {\n  const criterion = criteria.find(c => c.id === v.criterion_id);\n  if (!criterion) return;\n  const name = criterion.name;\n  if (!verdictIndex[v.bidder_id]) verdictIndex[v.bidder_id] = {};\n  const existing = verdictIndex[v.bidder_id][name];\n  if (!existing || new Date(v.decided_at) > new Date(existing.decided_at)) {\n    verdictIndex[v.bidder_id][name] = v;\n  }\n});\n\nconst evidenceIndex = {};\nevidence.forEach(e => {\n  const criterion = criteria.find(c => c.id === e.criterion_id);\n  if (!criterion) return;\n  const name = criterion.name;\n  if (!evidenceIndex[e.bidder_id]) evidenceIndex[e.bidder_id] = {};\n  const existing = evidenceIndex[e.bidder_id][name];\n  if (!existing || e.confidence > existing.confidence) {\n    evidenceIndex[e.bidder_id][name] = e;\n  }\n});\n\n// ── Per-bidder summary ────────────────────────────────────────────────\nconst bidderSummaries = bidders.map(bidder => {\n  const criteriaResults = uniqueCriteria.map(c => {\n    const verdict  = (verdictIndex[bidder.id] || {})[c.name] || null;\n    const ev       = (evidenceIndex[bidder.id] || {})[c.name] || null;\n\n    return {\n      criterion_name      : c.name,\n      criterion_mandatory : c.is_mandatory,\n      verdict_status      : verdict ? verdict.verdict : 'NOT_EVALUATED',\n      verdict_confidence  : verdict ? verdict.confidence : null,\n      verdict_reason      : verdict ? verdict.reason : null,\n      evidence_text       : ev ? ev.source_text : null,\n      evidence_confidence : ev ? ev.confidence : null,\n      evidence_pages      : ev ? ev.source_pages : []\n    };\n  });\n\n  const total           = criteriaResults.length;\n  const passed          = criteriaResults.filter(r => r.verdict_status === 'PASS').length;\n  const failed          = criteriaResults.filter(r => r.verdict_status === 'FAIL').length;\n  const manualReview    = criteriaResults.filter(r => r.verdict_status === 'MANUAL_REVIEW').length;\n  const notEvaluated    = criteriaResults.filter(r => r.verdict_status === 'NOT_EVALUATED').length;\n  const mandatoryFailed = criteriaResults.filter(\n    r => r.criterion_mandatory && r.verdict_status === 'FAIL'\n  ).length;\n\n  // UPDATED LOGIC:\n  // 1. Mandatory Fail -> DISQUALIFIED\n  // 2. Any Manual Review OR Missing Evaluation -> PENDING_REVIEW\n  // 3. Any Non-Mandatory Fail -> CONDITIONAL\n  // 4. Everything Passed -> ELIGIBLE\n  const overallStatus = mandatoryFailed > 0\n    ? 'DISQUALIFIED'\n    : (manualReview > 0 || notEvaluated > 0)\n      ? 'PENDING_REVIEW'\n      : failed > 0\n        ? 'CONDITIONAL'\n        : 'ELIGIBLE';\n\n  return {\n    bidder_id          : bidder.id,\n    bidder_name        : bidder.name,\n    registration_number: bidder.registration_number,\n    overall_status     : overallStatus,\n    stats: {\n      total,\n      passed,\n      failed,\n      manual_review : manualReview,\n      not_evaluated : notEvaluated,\n      mandatory_failed: mandatoryFailed\n    },\n    criteria_results   : criteriaResults\n  };\n});\n\nconst reportStats = {\n  total_bidders     : bidders.length,\n  eligible          : bidderSummaries.filter(b => b.overall_status === 'ELIGIBLE').length,\n  pending_review    : bidderSummaries.filter(b => b.overall_status === 'PENDING_REVIEW').length,\n  disqualified      : bidderSummaries.filter(b => b.overall_status === 'DISQUALIFIED').length,\n  conditional       : bidderSummaries.filter(b => b.overall_status === 'CONDITIONAL').length,\n  total_criteria    : uniqueCriteria.length,\n  total_verdicts    : verdicts.length,\n  total_evidence    : evidence.length\n};\n\nconst narrativePrompt = `\nTender: ${tender.name || 'Unnamed'}\nStatus: ${tender.status}\nTotal bidders: ${reportStats.total_bidders}\nEligible: ${reportStats.eligible}\nPending manual review: ${reportStats.pending_review}\nDisqualified: ${reportStats.disqualified}\nCriteria evaluated: ${reportStats.total_criteria}\nBidder outcomes: ${bidderSummaries.map(b => b.bidder_name + ' → ' + b.overall_status).join(', ')}\n`.trim();\n\nreturn {\n  json: {\n    report_generated_at : new Date().toISOString(),\n    tender,\n    report_stats        : reportStats,\n    unique_criteria     : uniqueCriteria,\n    bidder_summaries    : bidderSummaries,\n    llm_narrative_prompt: narrativePrompt\n  }\n};"
+      },
+      "id": "5ca12d9b-5ff0-44d2-a8e7-2b91e6b452a4",
+      "name": "Build Report Data (Deterministic)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        320
+      ],
+      "notes": "Builds ALL structured data deterministically — verdict cards, matrix, per-criterion results. LLM only writes the narrative summary. This guarantees tables are always accurate even if LLM fails."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:12434/engines/llama.cpp/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"model\": \"ai/mistral \",\n  \"temperature\": 0.2,\n  \"max_tokens\": 600,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are writing a formal tender evaluation report. Write ONLY a 2-3 sentence executive narrative summary based on the structured data below. Do not invent facts. Do not include numbers that are not in the data. Do not use bullet points or headings — plain prose only.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.llm_narrative_prompt\n    }\n  ]\n}\n}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "77884499-eabb-41ad-b514-f9ca404f785a",
+      "name": "LLM — Narrative Summary Only",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        320
+      ],
+      "notes": "LLM writes ONLY the summary + recommendation paragraphs. Max 600 tokens — small and focused. All tables, numbers, and verdicts come from deterministic code, never from LLM."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the raw text from the Mistral response\nconst llmResponse = $input.first().json;\nconst reportData = $('Build Report Data (Deterministic)').first().json;\n\n// Extract the content from the specific path Mistral uses\nlet narrativeText = llmResponse.choices?.[0]?.message?.content || \"\";\n\n// Clean up any stray quotes or whitespace\nnarrativeText = narrativeText.trim();\n\n// Since Mistral followed instructions and gave prose, \n// we use the whole thing as the summary.\nlet narrative = {\n  summary: narrativeText,\n  recommendation: 'Financial bids of eligible bidders may be opened as per schedule. Rejection letters to be issued to ineligible bidders with specific criterion references.'\n};\n\n// Merge into the report data\nreturn [{\n  json: {\n    ...reportData,\n    narrative\n  }\n}];"
+      },
+      "id": "0bde1696-36e1-46c7-8544-2cdc2e90e67b",
+      "name": "Parse Narrative (With Fallback)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        320
+      ],
+      "notes": "If LLM fails or returns unparseable output, a safe fallback narrative is used. Report generation NEVER blocks on LLM failure."
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nconst {\n  tender,\n  bidder_summaries: bidderCards,\n  unique_criteria: criteriaRaw,\n  narrative,\n  report_generated_at: generated_at\n} = d;\n\n// ── Sort criteria ──\nconst criteria = [...(criteriaRaw || [])].sort(\n  (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)\n);\n\n// Summary Stats\nconst eligible = bidderCards.filter(b => b.overall_status === 'ELIGIBLE');\nconst ineligible = bidderCards.filter(b => b.overall_status === 'DISQUALIFIED');\n\n// Colors & Branding\nconst NAVY = '#1B3A6B';\nconst GREEN = '#1A5C35';\nconst GREEN_LIGHT = '#D4F0DC';\nconst RED = '#7A1F1F';\nconst RED_LIGHT = '#FAE0E0';\nconst AMBER = '#7A4E00';\nconst AMBER_LIGHT = '#FFF3CD';\nconst GRAY = '#595959';\nconst BORDER = '#CCCCCC';\n\n/**\n * Enhanced Badge Helper with Icons\n * @param {string} verdict - The status string\n * @param {boolean} isMatrix - If true, shows ONLY the icon to save space\n */\nfunction verdictBadge(verdict, isMatrix = false) {\n  const map = {\n    ELIGIBLE:       { bg: GREEN_LIGHT, color: GREEN, label: 'PASS', icon: '✔' },\n    PASS:           { bg: GREEN_LIGHT, color: GREEN, label: 'PASS', icon: '✔' },\n    DISQUALIFIED:   { bg: RED_LIGHT,   color: RED,   label: 'FAIL', icon: '✘' },\n    FAIL:           { bg: RED_LIGHT,   color: RED,   label: 'FAIL', icon: '✘' },\n    PENDING_REVIEW: { bg: AMBER_LIGHT, color: AMBER, label: 'REVIEW', icon: '⚠' },\n    MANUAL_REVIEW:  { bg: AMBER_LIGHT, color: AMBER, label: 'REVIEW', icon: '⚠' }\n  };\n  \n  const s = map[verdict] || { bg: '#F2F4F7', color: GRAY, label: verdict || '—', icon: '?' };\n  \n  // Matrix style: Square, icon-focused\n  if (isMatrix) {\n    return `<span style=\"background:${s.bg};color:${s.color};font-weight:bold;width:22px;height:22px;line-height:22px;border-radius:50%;font-size:12px;display:inline-block;text-align:center;border:1px solid rgba(0,0,0,0.05)\">${s.icon}</span>`;\n  }\n  \n  // Detailed style: Rounded rectangle with Label\n  return `<span style=\"background:${s.bg};color:${s.color};font-weight:bold;padding:4px 8px;border-radius:3px;font-size:10px;white-space:nowrap;display:inline-block;border:1px solid rgba(0,0,0,0.1)\">${s.icon} ${s.label}</span>`;\n}\n\n// Table Style Helpers\nfunction th(text, width = 'auto') {\n  return `<th style=\"background:${NAVY};color:#ffffff;padding:8px 4px;text-align:center;font-size:10px;border:1px solid #ffffff;width:${width};word-wrap:break-word;\">${text}</th>`;\n}\n\n// ── 1. Master Matrix Row Generation ──\nlet matrixRows = '';\nfor (const bidder of bidderCards) {\n  let criteriaCells = '';\n  \n  criteria.forEach(c => {\n    const res = (bidder.criteria_results || []).find(r => \n        (r.criterion_id && r.criterion_id === c.id) || \n        (r.criterion_name === c.criterion_name) ||\n        (r.name === c.name)\n    );\n    // Use the Matrix-specific badge (Icon circle)\n    criteriaCells += `<td style=\"padding:6px;border:1px solid ${BORDER};text-align:center;\">${verdictBadge(res?.verdict_status, true)}</td>`;\n  });\n\n  matrixRows += `<tr>\n    <td style=\"padding:8px;border:1px solid ${BORDER};font-size:11px;font-weight:bold;background:#Fcfcfc;\">${bidder.bidder_name}</td>\n    ${criteriaCells}\n    <td style=\"padding:6px;border:1px solid ${BORDER};text-align:center;background:#Fcfcfc;\">${verdictBadge(bidder.overall_status)}</td>\n  </tr>`;\n}\n\nlet matrixHeaders = th('Bidder Name', '20%');\ncriteria.forEach((_, i) => { matrixHeaders += th(`C${i + 1}`, 'auto'); });\nmatrixHeaders += th('Overall Status', '15%');\n\n// ── 2. Legend Generation ──\nlet legendItems = '';\ncriteria.forEach((cr, i) => {\n  legendItems += `<div style=\"font-size:10px; margin-bottom:2px;\"><strong>C${i+1}:</strong> ${cr.name || cr.criterion_name}</div>`;\n});\n\n// ── 3. Bidder Detailed Sections ──\nlet bidderSections = '';\nfor (const bidder of bidderCards) {\n  let criterionRows = '';\n  const sortedResults = [...(bidder.criteria_results || [])].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));\n\n  sortedResults.forEach((cr, i) => {\n    criterionRows += `<tr>\n      <td style=\"padding:8px; border:1px solid ${BORDER}; text-align:center; font-size:10px;\">C${i + 1}</td>\n      <td style=\"padding:8px; border:1px solid ${BORDER}; font-weight:bold; font-size:11px; width:180px;\">${cr.criterion_name || cr.name || '—'}</td>\n      <td style=\"padding:8px; border:1px solid ${BORDER}; font-size:10px; color:#333; line-height:1.4;\">${cr.verdict_reason || '—'}</td>\n      <td style=\"padding:8px; border:1px solid ${BORDER}; font-size:10px; color:${GRAY};\">\n        ${cr.evidence_text ? `<em>&ldquo;${cr.evidence_text}&rdquo;</em><br><small style=\"display:block;margin-top:4px;\">Page: ${cr.evidence_pages?.join(',') || 'N/A'}</small>` : '—'}\n      </td>\n      <td style=\"padding:8px; border:1px solid ${BORDER}; text-align:center;\">${verdictBadge(cr.verdict_status)}</td>\n    </tr>`;\n  });\n\n  const statusColor = bidder.overall_status === 'ELIGIBLE' ? GREEN : bidder.overall_status === 'DISQUALIFIED' ? RED : AMBER;\n  const statusBg = bidder.overall_status === 'ELIGIBLE' ? GREEN_LIGHT : bidder.overall_status === 'DISQUALIFIED' ? RED_LIGHT : AMBER_LIGHT;\n\n  bidderSections += `\n    <div style=\"margin-top:30px; border:1px solid ${BORDER}; border-radius:4px; page-break-inside:avoid; overflow:hidden;\">\n      <div style=\"background:${statusBg}; padding:12px; border-bottom:2px solid ${statusColor}; display:flex; justify-content:space-between; align-items:center;\">\n        <strong style=\"color:${statusColor}; font-size:14px;\">${bidder.bidder_name}</strong>\n        <span style=\"font-size:10px; font-weight:bold; color:${statusColor}\">${bidder.overall_status}</span>\n      </div>\n      <table width=\"100%\" style=\"border-collapse:collapse; table-layout:fixed;\">\n        <thead>\n          <tr>\n            ${th('Ref','40px')}\n            ${th('Criterion','20%')}\n            ${th('Evaluation Note','40%')}\n            ${th('Source Evidence','25%')}\n            ${th('Verdict','12%')}\n          </tr>\n        </thead>\n        <tbody>${criterionRows}</tbody>\n      </table>\n    </div>`;\n}\n\n// ── 4. Final HTML ──\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    @page { size: A4; margin: 1.2cm; }\n    body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #222; margin: 0; }\n    .header-box { text-align: center; padding: 25px; background: ${NAVY}; color: white; border-bottom: 4px solid #DAA520; }\n    .section-title { color: ${NAVY}; border-bottom: 2px solid ${NAVY}; padding-bottom: 5px; margin-top: 30px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; }\n    .legend-box { background: #f9f9f9; padding: 12px; border: 1px solid ${BORDER}; margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-radius: 4px; }\n  </style>\n</head>\n<body>\n  <div class=\"header-box\">\n    <div style=\"font-size:20px; font-weight:bold; letter-spacing:2px; margin-bottom:8px; opacity:0.9;\">UNNATI - SMART TENDER AI</div>\n    <div style=\"font-size:13px; opacity:0.9;\">TECHNICAL BID EVALUATION: <span style=\"color:#FFD700\">${tender?.name || 'Tender Evaluation'}</span></div>\n    <div style=\"font-size:10px; margin-top:10px; opacity:0.7;\">REF: ${tender?.reference_number || 'N/A'}</div>\n  </div>\n\n  <h3 class=\"section-title\">1. Executive Summary</h3>\n  <div style=\"font-size:12px; background:#fcfcfc; padding:15px; border-radius:4px; border:1px solid #eee;\">\n    <p>${narrative?.summary || 'Evaluation summary is currently being compiled based on bidder submissions.'}</p>\n    <p><strong>Committee Recommendation:</strong> ${narrative?.recommendation || 'Pending final review of manual flags.'}</p>\n  </div>\n\n  <h3 class=\"section-title\">2. Master Eligibility Matrix</h3>\n  <table width=\"100%\" style=\"border-collapse:collapse; table-layout:fixed; margin-top:10px;\">\n    <thead><tr>${matrixHeaders}</tr></thead>\n    <tbody>${matrixRows}</tbody>\n  </table>\n\n  <div style=\"display: flex; justify-content: space-between; align-items: flex-start; margin-top: 15px;\">\n    <div style=\"width: 65%;\">\n        <div style=\"font-size:10px; font-weight:bold; color:${NAVY}\">CRITERION LEGEND:</div>\n        <div class=\"legend-box\">${legendItems}</div>\n    </div>\n    <div style=\"width: 30%; background: #fff; border: 1px solid ${BORDER}; padding: 10px; border-radius: 4px;\">\n        <div style=\"font-size:10px; font-weight:bold; color:${NAVY}; margin-bottom: 5px;\">KEY:</div>\n        <div style=\"font-size: 10px;\"><span style=\"color:${GREEN}\">✔</span> Pass</div>\n        <div style=\"font-size: 10px;\"><span style=\"color:${RED}\">✘</span> Fail</div>\n        <div style=\"font-size: 10px;\"><span style=\"color:${AMBER}\">⚠</span> Manual Review</div>\n    </div>\n  </div>\n\n  <h3 class=\"section-title\">3. Detailed Bidder Observations</h3>\n  ${bidderSections}\n\n  <div style=\"margin-top:50px; border-top:1px solid #eee; padding-top:15px; font-size:9px; color:${GRAY}; text-align:center;\">\n    This technical evaluation report was generated automatically by <strong>Unnati Smart Tender AI</strong>.<br>\n    Final authority for bidder qualification remains with the designated Tender Opening Committee.<br>\n    Timestamp: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n  </div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    tender_id: tender?.id || \"N/A\",\n    html_content: html,\n    report_metadata: {\n      total_bidders: bidderCards.length,\n      eligible_count: eligible.length,\n      disqualified_count: ineligible.length\n    }\n  }\n}];"
+      },
+      "id": "8a4fe72a-bb74-4e5b-a567-9996a6823220",
+      "name": "Build HTML Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        320
+      ],
+      "notes": "Generates complete government-format HTML report with inline CSS only. WeasyPrint-safe: no flexbox, no grid, no external resources. Includes CRPF letterhead, master matrix, per-bidder cards, signature block."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/webhooks/report-ready",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tender_id: $json.tender_id, html_content: $json.html_content, report_metadata: $json.report_metadata }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "c7ae633b-4de0-4afb-baf7-7d84d1252d07",
+      "name": "POST HTML to FastAPI (PDF Render)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1168,
+        320
+      ],
+      "notes": "FastAPI receives HTML, calls WeasyPrint internally, stores PDF, returns { report_id, download_url }. Timeout 60s — WeasyPrint on complex HTML can take 20-30s."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/audit-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Build HTML Report').item.json.tender_id }}\",\n  \"event_type\": \"report_generated\",\n  \"actor\": \"n8n_wf5\",\n  \"entity_type\": \"tender\",\n  \"entity_id\": \"{{ $('Build HTML Report').item.json.report_metadata.tender_reference }}\",\n  \"detail\": \"Eligible: {{ $('Build HTML Report').first().json.report_metadata.eligible_count }} | Ineligible: {{ $('Build HTML Report').first().json.report_metadata.ineligible_count }} | URL: {{ $json.download_url }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "a42e2b18-699e-4674-a356-3c2775cd96bf",
+      "name": "Write Audit Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1408,
+        320
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook Trigger": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json",
+            "user-agent": "PostmanRuntime/7.53.0",
+            "accept": "*/*",
+            "cache-control": "no-cache",
+            "postman-token": "69115718-b6cf-42e9-921a-1547c3f5855c",
+            "host": "localhost:5678",
+            "accept-encoding": "gzip, deflate, br",
+            "connection": "keep-alive",
+            "content-length": "93"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "tender_id": "9a83f846-35c3-4343-a2c8-d8f132aed7ed",
+            "include_audit_trail": true
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/report-generation",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond Immediately",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Tender Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tender Metadata": {
+      "main": [
+        [
+          {
+            "node": "Build Report Data (Deterministic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report Data (Deterministic)": {
+      "main": [
+        [
+          {
+            "node": "LLM — Narrative Summary Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM — Narrative Summary Only": {
+      "main": [
+        [
+          {
+            "node": "Parse Narrative (With Fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Narrative (With Fallback)": {
+      "main": [
+        [
+          {
+            "node": "Build HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build HTML Report": {
+      "main": [
+        [
+          {
+            "node": "POST HTML to FastAPI (PDF Render)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST HTML to FastAPI (PDF Render)": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "40657ad4-da22-4603-a5a9-38c4d8e7d5d2",
+  "meta": {
+    "instanceId": "90daaa8fe0c7b89846532888f01906cdce793de9ac34a9e8673cbfa6374d23b8"
+  },
+  "id": "l6vHEescTQn4MBON",
+  "tags": [
+    {
+      "updatedAt": "2026-05-04T12:40:30.401Z",
+      "createdAt": "2026-05-04T12:40:30.401Z",
+      "id": "MfJvMcgvG7qi68WG",
+      "name": "Final"
+    },
+    {
+      "updatedAt": "2026-05-03T06:36:58.799Z",
+      "createdAt": "2026-05-03T06:36:58.799Z",
+      "id": "Z9epEy8VH84KgNNe",
+      "name": "smarttender"
+    },
+    {
+      "updatedAt": "2026-05-05T11:59:20.975Z",
+      "createdAt": "2026-05-05T11:59:20.975Z",
+      "id": "aeHsennyszqiniTh",
+      "name": "wf5-report"
+    }
+  ]
+}

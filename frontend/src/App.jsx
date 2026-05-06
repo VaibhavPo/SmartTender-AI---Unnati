@@ -5,11 +5,9 @@
  * + main content area. All routes are properly separated.
  */
 
-import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from "react-router-dom";
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+import { BrowserRouter as Router, Routes, Route, NavLink } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import {
-  FileText,
-  ClipboardCheck,
   BarChart3,
   FileBarChart,
   Bell,
@@ -24,11 +22,11 @@ import {
   FolderOpen,
   Users,
   CheckSquare,
-  Sparkles,
   ScrollText,
   Eye,
 } from "lucide-react";
 
+import { ThemeContext, TenderContext, useTheme, useTender } from "./contexts";
 import UploadPage from "./pages/UploadPage";
 import BidderDocsPage from "./pages/BidderDocsPage";
 import CriteriaReviewPage from "./pages/CriteriaReviewPage";
@@ -36,18 +34,6 @@ import EvaluationDashboardPage from "./pages/EvaluationDashboardPage";
 import ManualReviewPage from "./pages/ManualReviewPage";
 import ReportPage from "./pages/ReportPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
-
-// ── Theme Context ──
-const ThemeContext = createContext();
-export function useTheme() {
-  return useContext(ThemeContext);
-}
-
-// ── Tender Context (shared across pages) ──
-const TenderContext = createContext();
-export function useTender() {
-  return useContext(TenderContext);
-}
 
 // Top nav tabs — each points to a UNIQUE route
 const topTabs = [
@@ -149,10 +135,11 @@ function SettingsDropdown() {
 function TopNavBar() {
   return (
     <header className="flex items-center justify-between px-5 py-0 bg-white dark:bg-[#0F172A] border-b border-black/[0.08] dark:border-white/[0.08] h-14">
-      <div className="flex items-center gap-8">
-        <h1 className="font-heading font-extrabold text-[15px] text-brand-500 dark:text-brand-200 tracking-tight whitespace-nowrap">
-          Unnati SmartTender AI
-        </h1>
+      <div className="flex items-center gap-4">
+        <img src="/LogoUnnati.png" alt="Unnati logo" className="h-9 w-auto rounded-lg object-contain bg-white dark:bg-[#0F172A]" />
+        <h2 className="font-heading font-extrabold text-[15px] text-brand-500 dark:text-brand-200 tracking-tight whitespace-nowrap">
+          SmartTender AI
+        </h2>
         <nav className="flex items-center gap-1">
           {topTabs.map(({ path, label }) => (
             <NavLink

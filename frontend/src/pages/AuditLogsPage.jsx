@@ -5,9 +5,9 @@
  * active tender: uploads, criteria extraction, evaluations, overrides.
  */
 
-import { useState, useEffect } from "react";
-import { useTender } from "../App";
-import { tenderApi, documentApi, criteriaApi, verdictApi } from "../api/client";
+import { useState, useEffect, useCallback } from "react";
+import { useTender } from "../contexts";
+import { documentApi, criteriaApi, verdictApi } from "../api/client";
 import {
   ScrollText,
   FileText,
@@ -18,7 +18,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Filter,
   Search,
 } from "lucide-react";
 
@@ -41,14 +40,7 @@ export default function AuditLogsPage() {
   const [filterType, setFilterType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Build audit trail from existing API data
-  useEffect(() => {
-    if (activeTender) {
-      buildAuditTrail(activeTender.id);
-    }
-  }, [activeTender]);
-
-  const buildAuditTrail = async (tenderId) => {
+  const buildAuditTrail = useCallback(async (tenderId) => {
     setLoading(true);
     const trail = [];
 
@@ -58,8 +50,8 @@ export default function AuditLogsPage() {
         id: `tender-${tenderId}`,
         type: "system",
         action: "Tender Created",
-        detail: `Tender "${activeTender.name}" was created`,
-        timestamp: activeTender.created_at || new Date().toISOString(),
+        detail: `Tender "${activeTender?.name || tenderId}" was created`,
+        timestamp: activeTender?.created_at || new Date().toISOString(),
         actor: "Officer",
       });
 
@@ -88,7 +80,7 @@ export default function AuditLogsPage() {
             }
           });
         }
-      } catch (e) { /* no docs */ }
+      } catch { /* no docs */ }
 
       // 3. Criteria extraction
       try {
@@ -113,7 +105,7 @@ export default function AuditLogsPage() {
             });
           });
         }
-      } catch (e) { /* no criteria */ }
+      } catch { /* no criteria */ }
 
       // 4. Verdicts / evaluations
       try {
@@ -147,7 +139,7 @@ export default function AuditLogsPage() {
             }
           });
         }
-      } catch (e) { /* no verdicts */ }
+      } catch { /* no verdicts */ }
 
       // Sort by timestamp descending (newest first)
       trail.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -157,7 +149,16 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTender]);
+
+  // Build audit trail from existing API data
+   
+  useEffect(() => {
+    if (activeTender) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      buildAuditTrail(activeTender.id);
+    }
+  }, [activeTender, buildAuditTrail]);
 
   // Filter and search
   const filteredLogs = logs.filter((log) => {

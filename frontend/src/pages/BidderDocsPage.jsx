@@ -5,10 +5,9 @@
  * Add bidders, upload bidder-specific documents, view status.
  */
 
-import { useState, useEffect, useRef } from "react";
-import { useTender } from "../App";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useTender } from "../contexts";
 import { tenderApi, documentApi } from "../api/client";
-import StatusBadge from "../components/StatusBadge";
 import {
   Users,
   Plus,
@@ -20,8 +19,6 @@ import {
   Clock,
   AlertCircle,
   UserPlus,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 
 export default function BidderDocsPage() {
@@ -34,13 +31,7 @@ export default function BidderDocsPage() {
   const [loading, setLoading] = useState(false);
   const fileRef = useRef(null);
 
-  useEffect(() => {
-    if (activeTender) {
-      loadData(activeTender.id);
-    }
-  }, [activeTender]);
-
-  const loadData = async (tenderId) => {
+  const loadData = useCallback(async (tenderId) => {
     setLoading(true);
     try {
       const [biddersRes, docsRes] = await Promise.all([
@@ -55,7 +46,15 @@ export default function BidderDocsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+   
+  useEffect(() => {
+    if (activeTender) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadData(activeTender.id);
+    }
+  }, [activeTender, loadData]);
 
   const handleAddBidder = async (e) => {
     e.preventDefault();

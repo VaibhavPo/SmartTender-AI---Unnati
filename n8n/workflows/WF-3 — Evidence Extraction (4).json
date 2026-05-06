@@ -1,0 +1,970 @@
+{
+  "name": "WF-3 — Evidence Extraction",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('SetModel').first().json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.llm_body_run1 }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "7f9cf594-e5e7-4017-834e-f64ccffa2dc0",
+      "name": "Extract Run 1 (temp 0.0)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        80
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 4000,
+      "credentials": {
+        "groqApi": {
+          "id": "5JnqMwxGYYq9CpLl",
+          "name": "Groq account 2"
+        }
+      },
+      "notes": "Temperature 0.0 — deterministic baseline run."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('SetModel').first().json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.llm_body_run2 }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "d083e857-2d99-4084-81fd-39dc30d7a8e3",
+      "name": "Extract Run 2 (temp 0.3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        240
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 4000,
+      "credentials": {
+        "groqApi": {
+          "id": "5JnqMwxGYYq9CpLl",
+          "name": "Groq account 2"
+        }
+      },
+      "notes": "Temperature 0.3 — slight variation to probe consistency."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('SetModel').first().json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.llm_body_run3 }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "6d8ff7c7-5963-401e-b69c-53f8bae25700",
+      "name": "Extract Run 3 (temp 0.6)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "credentials": {
+        "groqApi": {
+          "id": "5JnqMwxGYYq9CpLl",
+          "name": "Groq account 2"
+        }
+      },
+      "notes": "Temperature 0.6 — more variation. If this agrees with runs 1 and 2, the value is robust."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════\n// SELF-CONSISTENCY VALIDATION\n// Compares the three LLM runs. If they agree → high confidence.\n// If they disagree → lower confidence → MANUAL_REVIEW.\n// ═══════════════════════════════════════════════════════════\n\n// n8n passes multiple inputs from the three HTTP Request nodes.\n// We need to get results from all three runs.\n// Each run was connected as a separate input to this node.\nconst run1Response = $('Extract Run 1 (temp 0.0)').first().json;\nconst run2Response = $('Extract Run 2 (temp 0.3)').first().json;\nconst run3Response = $('Extract Run 3 (temp 0.6)').first().json;\nconst pair = $('Split In Batches1').first().json;\n\n// ── Parse helper ─────────────────────────────────────────────\nfunction parseEvidence(llmResponse) {\n  let raw = llmResponse.choices?.[0]?.message?.content || '';\n  raw = raw.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/i, '').trim();\n  const objStart = raw.indexOf('{');\n  const objEnd = raw.lastIndexOf('}');\n  if (objStart === -1 || objEnd === -1) return null;\n  try {\n    const obj = JSON.parse(\n      raw.substring(objStart, objEnd + 1).replace(/,\\s*([\\]\\}])/g, '$1')\n    );\n    // Normalise value to float if it's a string number\n    if (typeof obj.value === 'string') {\n      const cleaned = obj.value.replace(/[₹,\\s]/g, '');\n      const asFloat = parseFloat(cleaned);\n      obj.value = isNaN(asFloat) ? obj.value : asFloat; // keep string if not numeric\n    }\n    return obj;\n  } catch (e) {\n    return null;\n  }\n}\n\n// ── Normalise value for comparison ───────────────────────────\n// Converts to string for reliable equality check across types\nfunction normaliseForCompare(val) {\n  if (val === null || val === undefined) return '__NULL__';\n  if (typeof val === 'number') return val.toFixed(2);\n  return String(val).toLowerCase().trim()\n    .replace(/[₹,\\s]/g, '')\n    .replace(/crore/g, '0000000')\n    .replace(/lakh/g, '00000');\n}\n\nconst e1 = parseEvidence(run1Response);\nconst e2 = parseEvidence(run2Response);\nconst e3 = parseEvidence(run3Response);\n\nconst parsedRuns = [e1, e2, e3].filter(Boolean);\n\n// If all three failed to parse — definitive not_found\nif (parsedRuns.length === 0) {\n  return [{ json: {\n    ...pair,\n    value: null,\n    unit: null,\n    source_chunk_ref: null,\n    source_page: null,\n    quoted_text: null,\n    confidence: 0.0,\n    not_found_reason: 'All 3 LLM runs failed to produce parseable JSON',\n    extraction_method: 'consistency_all_failed',\n    consistency_detail: { run1: null, run2: null, run3: null, agreement: false },\n    extracted_at: new Date().toISOString()\n  } }];\n}\n\n// ── Compare the values across runs ───────────────────────────\nconst values = parsedRuns.map(e => normaliseForCompare(e?.value));\nconst uniqueValues = [...new Set(values)];\n\n// Count how many runs agree on each value\nconst valueCounts = {};\nfor (const v of values) {\n  valueCounts[v] = (valueCounts[v] || 0) + 1;\n}\n\n// Find the majority value (value that appears most)\nconst majorityValue = Object.entries(valueCounts).sort((a, b) => b[1] - a[1])[0][0];\nconst majorityCount = valueCounts[majorityValue];\n\n// ── Agreement logic ───────────────────────────────────────────\n// All 3 agree → FULL agreement → boost confidence\n// 2 of 3 agree → PARTIAL agreement → use majority but flag\n// All 3 disagree → NO agreement → escalate to MANUAL_REVIEW\n\nconst FULL_AGREEMENT  = majorityCount === 3;\nconst PARTIAL_AGREEMENT = majorityCount === 2;\nconst NO_AGREEMENT = uniqueValues.length === parsedRuns.length && parsedRuns.length > 1;\n\n// Pick the winner — the run whose value matches the majority\n// If tied (all different), pick run1 (temp 0.0) as most deterministic\nlet winner = parsedRuns.find(e => normaliseForCompare(e?.value) === majorityValue) || e1 || parsedRuns[0];\n\n// ── Confidence adjustment ─────────────────────────────────────\nlet finalConfidence = winner.confidence ?? 0.0;\nlet consistencyNote = '';\nlet forceManualReview = false;\n\nif (FULL_AGREEMENT && majorityValue !== '__NULL__') {\n  // All 3 found the same value — strong signal, boost confidence\n  finalConfidence = Math.min(1.0, finalConfidence + 0.10);\n  consistencyNote = `All 3 runs agreed on value: ${majorityValue}`;\n\n} else if (FULL_AGREEMENT && majorityValue === '__NULL__') {\n  // All 3 found nothing — confident not_found\n  finalConfidence = 0.95;\n  consistencyNote = 'All 3 runs agree: value not found in document';\n\n} else if (PARTIAL_AGREEMENT && majorityValue !== '__NULL__') {\n  // 2 of 3 agree — moderate confidence, keep as-is or slight penalty\n  finalConfidence = Math.max(0.0, finalConfidence - 0.05);\n  const dissenter = parsedRuns.find(e => normaliseForCompare(e?.value) !== majorityValue);\n  consistencyNote = `2 of 3 runs agreed. Dissenting run extracted: ${dissenter?.value ?? 'null'}`;\n\n} else if (PARTIAL_AGREEMENT && majorityValue === '__NULL__') {\n  // 2 of 3 found nothing, 1 found something — uncertain\n  finalConfidence = 0.45;\n  forceManualReview = true;\n  consistencyNote = '2 of 3 runs found no value. 1 run found a value. Flagging for manual review.';\n\n} else if (NO_AGREEMENT) {\n  // All runs found different values — the extraction is unreliable\n  finalConfidence = 0.30;\n  forceManualReview = true;\n  consistencyNote = `All 3 runs disagreed. Values were: ${parsedRuns.map(e => e?.value ?? 'null').join(' | ')}`;\n}\n\n// Clamp confidence\nfinalConfidence = Math.min(1.0, Math.max(0.0, finalConfidence));\n\n// ── Force MANUAL_REVIEW if confidence still too low ───────────\nif (finalConfidence < 0.60 && !forceManualReview) {\n  forceManualReview = true;\n  consistencyNote += ` Confidence ${finalConfidence.toFixed(2)} below 0.60 threshold.`;\n}\n\nreturn [{\n  json: {\n    ...pair,\n    value: forceManualReview && NO_AGREEMENT ? null : (winner.value ?? null),\n    unit: winner.unit ?? null,\n    source_chunk_ref: winner.source_chunk_ref ?? null,\n    source_page: winner.source_page ?? null,\n    quoted_text: winner.quoted_text ?? null,\n    confidence: finalConfidence,\n    not_found_reason: (winner.value === null) ? (winner.not_found_reason ?? 'Not found') : null,\n    extraction_method: forceManualReview ? 'consistency_manual_review' : 'consistency_validated',\n    consistency_detail: {\n      run1_value: e1?.value ?? null,\n      run2_value: e2?.value ?? null,\n      run3_value: e3?.value ?? null,\n      full_agreement: FULL_AGREEMENT,\n      partial_agreement: PARTIAL_AGREEMENT,\n      no_agreement: NO_AGREEMENT,\n      majority_value: majorityValue,\n      majority_count: majorityCount,\n      note: consistencyNote\n    },\n    force_manual_review: forceManualReview,\n    extracted_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "1013805b-3d48-4bda-9e6b-83dad5370342",
+      "name": "Self-Consistency Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        256
+      ],
+      "notes": "Compares all 3 LLM runs. Full agreement (3/3) → +0.10 confidence boost. Partial (2/3) → -0.05 penalty. No agreement (0/3) → force MANUAL_REVIEW. All null → confident not_found."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evidence-extraction",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6a022412-5f1d-4ed3-a139-b1126d355eb4",
+      "name": "Webhook Trigger1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3760,
+        192
+      ],
+      "webhookId": "smarttender-evidence-extract"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, tender_id: $json.tender_id, bidder_count: $json.bidder_ids.length, status: 'processing' }) }}",
+        "options": {}
+      },
+      "id": "d6844e01-1cb1-4760-b9c4-77affbd0b089",
+      "name": "Respond Immediately1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -3408,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1/criteria?tender_id={{ $('Webhook Trigger1').item.json.body.tender_id }}&status=confirmed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "4e228f8b-b6a0-4a88-8d58-058c74707ac2",
+      "name": "Fetch Confirmed Criteria1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3408,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bidder_ids = $('Webhook Trigger1').first().json.body.bidder_ids || [];\nconst tender_id = $('Webhook Trigger1').first().json.body.tender_id;\nconst criteria = $input.all().map(item => item.json);\n\nif (criteria.length === 0) throw new Error('No confirmed criteria found.');\nif (bidder_ids.length === 0) throw new Error('No bidder_ids provided.');\n\nconst pairs = [];\nfor (const bidder_id of bidder_ids) {\n  for (const criterion of criteria) {\n    pairs.push({\n      tender_id, bidder_id,\n      criterion_id: criterion.id,\n      criterion_name: criterion.name,\n      criterion_type: criterion.type,\n      criterion_description: criterion.description,\n      threshold_value: criterion.threshold_value ?? null,\n      threshold_unit: criterion.threshold_unit ?? null,\n      mandatory: criterion.mandatory,\n      source_section: criterion.source_section,\n      embedding_query: [criterion.name, criterion.description, criterion.source_text || ''].filter(Boolean).join('. ')\n    });\n  }\n}\n\nreturn pairs.map(p => ({ json: p }));"
+      },
+      "id": "c8e242d0-9023-4ed7-8c42-a21e8c243aee",
+      "name": "Build Bidder × Criterion Matrix1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3184,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "e44b1030-874b-4fb9-a3c1-dcacd1cf19e0",
+      "name": "Split In Batches1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2960,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:12434/v1/embeddings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"ai/nomic-embed-text-v1.5\",\n  \"input\": \"{{ $json.embedding_query }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "728b5a58-bef7-4857-a945-269408619b4f",
+      "name": "Embed Criterion Text1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2736,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const embeddingResponse = $input.first().json;\nconst vector = embeddingResponse.data?.[0]?.embedding;\nif (!vector || vector.length === 0) throw new Error('Embedding failed.');\nconst pair = $('Split In Batches1').first().json;\nreturn [{ json: { ...pair, vector } }];"
+      },
+      "id": "276d1d92-fa2a-4ac9-8b7c-30d61451953f",
+      "name": "Attach Embedding to Pair1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2496,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:6333/collections/tender_docs/points/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"vector\": {{ JSON.stringify($json.vector) }},\n  \"filter\": { \"must\": [{ \"key\": \"bidder_id\", \"match\": { \"value\": \"{{ $json.bidder_id }}\" } }] },\n  \"limit\": 5,\n  \"with_payload\": true,\n  \"score_threshold\": 0.3\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "657706f8-9da7-48e7-9f2e-251a0a818baa",
+      "name": "Search Qdrant1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2288,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const qdrantResponse = $input.first().json;\nconst searchResults = qdrantResponse.result || [];\nconst pair = $('Split In Batches1').first().json;\n\nconst chunks = searchResults.map((r, i) => {\n  const p = r.payload || {};\n  const score = r.score ? ` (relevance: ${r.score.toFixed(2)})` : '';\n  return `[Chunk ${i + 1}, Page ${p.page_num || '?'}${score}]\\n${p.text || ''}`;\n}).join('\\n\\n---\\n\\n');\n\nreturn [{\n  json: {\n    ...pair,\n    context_chunks: chunks,\n    chunk_count: searchResults.length,\n    no_chunks_found: searchResults.length === 0,\n    raw_search_results: searchResults.map(r => ({\n      score: r.score,\n      page_num: r.payload?.page_num,\n      block_type: r.payload?.block_type,\n      text_preview: (r.payload?.text || '').substring(0, 100)\n    }))\n  }\n}];"
+      },
+      "id": "c098816d-2be8-42d9-ab28-a250d094a4ec",
+      "name": "Build Extraction Prompt1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-no-chunks",
+              "leftValue": "={{ $json.no_chunks_found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5c1955d8-3060-46f6-b736-368994e29b1d",
+      "name": "Any Chunks Found?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1888,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pair = $input.first().json;\nconst generatedId = `${pair.tender_id}_${pair.bidder_id}_${pair.criterion_id}_${Date.now()}`;\nreturn [{ json: {\n  id: generatedId,\n  tender_id: pair.tender_id,\n  bidder_id: pair.bidder_id,\n  criterion_id: pair.criterion_id,\n  extracted_value: null,\n  source_pages: [],\n  source_text: null,\n  confidence: 0.0,\n  not_found_reason: 'No relevant document chunks found in Qdrant for this bidder.',\n  extraction_method: 'qdrant_empty',\n  extracted_at: new Date().toISOString()\n} }];"
+      },
+      "id": "e9a908dc-d2b1-41dc-8df0-95466c1a46cd",
+      "name": "Create Not-Found Evidence1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the shared LLM body template.\n// Three runs will use this same prompt but with different temperatures.\n// Temperatures: 0.0 (deterministic), 0.3 (slight variation), 0.6 (more variation)\n// If all three agree on the value → high confidence confirmed.\n// If they disagree → lower confidence, escalate to MANUAL_REVIEW.\n\nconst pair = $input.first().json;\n\nconst systemPrompt = `You are a document evidence extractor for Indian government procurement evaluation.\nYour job: find ONE specific value in the provided document chunks.\n\nRULES (non-negotiable):\n1. Return ONLY what is explicitly written in the chunks. Zero inference. Zero estimation.\n2. If the value is not clearly present, return null for value.\n3. quoted_text must be copied VERBATIM from the chunk — exact words, exact spelling.\n4. Never calculate, derive, or average values.\n5. Return ONLY a JSON object — no markdown, no fences, no explanation.\nStart your response with { and end with }\n6. If the criterion is qualitative (e.g., AI capabilities, certifications, features, compliance),\n   DO NOT extract numeric financial values.\n   Instead, return value = null and extract the full relevant descriptive quoted_text.\n7. Prefer chunks where the criterion keyword or section heading directly matches the criterion name.\n\nReturn exactly this shape:\n{\n  \"value\": 21000000,\n  \"unit\": \"INR\",\n  \"source_chunk_ref\": 2,\n  \"source_page\": 4,\n  \"quoted_text\": \"exact words from the chunk\",\n  \"confidence\": 0.91,\n  \"not_found_reason\": null\n}\n\nIf NOT found:\n{\n  \"value\": null,\n  \"unit\": null,\n  \"source_chunk_ref\": null,\n  \"source_page\": null,\n  \"quoted_text\": null,\n  \"confidence\": 0.0,\n  \"not_found_reason\": \"one sentence explaining why\"\n}`;\n\nconst userPrompt = `Criterion to find: ${pair.criterion_name}\\nFull requirement: ${pair.criterion_description}\\nThreshold: ${pair.threshold_value} ${pair.threshold_unit}\\n\\nDocument chunks from this bidder's submission:\\n\\n${pair.context_chunks}\\n\\nFind the evidence for this criterion in the chunks above. Return the JSON object only.`;\n\n// Build three request bodies with different temperatures\nconst makeBody = (temp) => JSON.stringify({\n  model: $('SetModel').first().json.model_name,\n  temperature: temp,\n  max_tokens: 1000,\n  messages: [\n    { role: 'system', content: systemPrompt },\n    { role: 'user', content: userPrompt }\n  ]\n});\n\nreturn [{\n  json: {\n    ...pair,\n    llm_body_run1: makeBody(0.0),\n    llm_body_run2: makeBody(0.3),\n    llm_body_run3: makeBody(0.6)\n  }\n}];"
+      },
+      "id": "f7802f72-3ce4-4640-9224-3dcaa8c395f8",
+      "name": "Build Evidence Prompt1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1744,
+        192
+      ],
+      "notes": "Builds three LLM request bodies with temperatures 0.0, 0.3, 0.6. Same prompt, different temperatures. The consistency check node compares the three outputs."
+    },
+    {
+      "parameters": {
+        "jsCode": "function makeId(item) {\n  return `${item.tender_id}_${item.bidder_id}_${item.criterion_id}_${Date.now()}`;\n}\n\nreturn $input.all().map(item => {\n  const e = item.json;\n  return {\n    json: {\n      id: makeId(e),\n      tender_id: e.tender_id,\n      bidder_id: e.bidder_id,\n      criterion_id: e.criterion_id,\n      extracted_value: e.value !== null && e.value !== undefined ? String(e.value) : null,\n      source_text: e.quoted_text || null,\n      source_pages: e.source_page !== null && e.source_page !== undefined ? [e.source_page] : [],\n      confidence: typeof e.confidence === 'number' ? Math.min(1, Math.max(0, e.confidence)) : 0,\n      extraction_method: e.extraction_method || 'rag',\n      // Pass consistency_detail through for audit log\n      consistency_detail: e.consistency_detail || null,\n      force_manual_review: e.force_manual_review || false,\n      extracted_at: e.extracted_at || new Date().toISOString()\n    }\n  };\n});"
+      },
+      "id": "39150c8b-5fbb-44e4-9e30-a1d9d1194b5c",
+      "name": "Format Evidence for FastAPI1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        288
+      ],
+      "notes": "Converts internal shape to FastAPI schema. Passes consistency_detail and force_manual_review through so FastAPI can store them and WF-4 can read them."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/webhooks/evidence-extracted",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "06b4a51a-dda1-4788-a849-e626a7a41958",
+      "name": "POST Evidence to FastAPI1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -832,
+        240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d8bfb6d8-fb48-4678-b5ce-1e9250a4b226",
+      "name": "Back to Split In Batches1",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $('Webhook Trigger1').first().json.body;\nreturn [{ json: {\n  tender_id: webhookData.tender_id,\n  bidder_ids: webhookData.bidder_ids,\n  status: 'evidence_extraction_complete',\n  completed_at: new Date().toISOString()\n} }];"
+      },
+      "id": "4be2bae2-0638-4ed9-a121-89386379c9cb",
+      "name": "Loop Complete1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/audit-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Loop Complete1').item.json.tender_id }}\",\n  \"event_type\": \"evidence_extraction_complete\",\n  \"actor\": \"n8n_wf3\",\n  \"entity_type\": \"tender\",\n  \"entity_id\": \"{{ $('Loop Complete1').item.json.tender_id }}\",\n  \"detail\": \"Extraction completed for {{ $('Loop Complete1').item.json.bidder_ids.length }} bidder(s) at {{ $('Loop Complete1').item.json.completed_at }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "20560a82-f8b0-4f56-ab8e-a868f3695505",
+      "name": "Write Audit Event1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -544,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/verdict-engine2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tender_id\": \"{{ $('Loop Complete1').item.json.tender_id }}\",\n  \"bidder_ids\": {{ JSON.stringify($('Loop Complete1').item.json.bidder_ids) }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "0e8cce4d-e5c5-4dd8-9b50-3f608d50958c",
+      "name": "Trigger WF-4 Verdict Engine1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1344,
+        240
+      ],
+      "id": "aed2ecd8-a1c6-44de-ad05-f0777745b507",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2b94a51e-c5e3-4cdd-a7a4-4f0e34d02919",
+              "name": "url",
+              "value": "https://api.groq.com/openai/v1/chat/completions",
+              "type": "string"
+            },
+            {
+              "id": "acb3487c-1a96-471c-819f-6d37d69a8521",
+              "name": "model_name",
+              "value": "openai/gpt-oss-safeguard-20b",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3424,
+        576
+      ],
+      "id": "7ab1754d-0dae-463f-a285-a8062f5aaf05",
+      "name": "External Model"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2b94a51e-c5e3-4cdd-a7a4-4f0e34d02919",
+              "name": "url",
+              "value": "http://host.docker.internal:12434/engines/llama.cpp/v1/chat/completions",
+              "type": "string"
+            },
+            {
+              "id": "acb3487c-1a96-471c-819f-6d37d69a8521",
+              "name": "model_name",
+              "value": "ai/mistral",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3616,
+        560
+      ],
+      "id": "a3599351-76f0-4c78-92d4-ed7867804258",
+      "name": "LocalModel1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2b94a51e-c5e3-4cdd-a7a4-4f0e34d02919",
+              "name": "url",
+              "value": "http://host.docker.internal:12434/engines/llama.cpp/v1/chat/completions",
+              "type": "string"
+            },
+            {
+              "id": "acb3487c-1a96-471c-819f-6d37d69a8521",
+              "name": "model_name",
+              "value": "ai/mistral",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3600,
+        288
+      ],
+      "id": "5573de3b-7820-44bd-bf18-3defbcf7d53f",
+      "name": "SetModel"
+    }
+  ],
+  "pinData": {
+    "Webhook Trigger1": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br",
+            "connection": "keep-alive",
+            "user-agent": "python-httpx/0.28.1",
+            "content-length": "592",
+            "content-type": "application/json"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "tender_id": "627ecce7-0b99-499d-be74-f1f1274396a0",
+            "bidder_ids": [
+              "c1f4f76b-4f56-4ce0-a2ec-7cc0e7006598",
+              "c36b2985-01b2-4610-adb3-93e8614b3ed0",
+              "490a523b-bdb0-4bbb-8a9d-429eed2a34f4"
+            ],
+            "criterion_ids": [
+              "14ca78ea-db90-4b9a-84fd-9face6a9d6b9",
+              "67805f39-7a46-4650-83fb-aaa01c046b62",
+              "85bb4a8f-30dc-4f16-8768-730f9fb0ca55",
+              "0ca0d702-0624-4f01-8e99-3f52f44befd2",
+              "cdb49f83-da3c-4c37-a2ac-db0262b9e1ac",
+              "68a994b3-0862-4306-853d-0863c717e9ee",
+              "b9ea64c4-0ee5-4873-80d8-b3fe8971c3cb",
+              "ebcf56bf-d907-4e89-bc66-8af2250e4669",
+              "09587f14-3d07-4c91-b151-04e3ce406558",
+              "9ed3174e-0fc1-46ea-a61f-1bed89f9ffde"
+            ]
+          },
+          "webhookUrl": "http://localhost:5678/webhook/evidence-extraction",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Extract Run 1 (temp 0.0)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Run 2 (temp 0.3)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract Run 3 (temp 0.6)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Self-Consistency Check": {
+      "main": [
+        [
+          {
+            "node": "Format Evidence for FastAPI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Respond Immediately1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SetModel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Confirmed Criteria1": {
+      "main": [
+        [
+          {
+            "node": "Build Bidder × Criterion Matrix1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bidder × Criterion Matrix1": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches1": {
+      "main": [
+        [
+          {
+            "node": "Loop Complete1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Embed Criterion Text1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Criterion Text1": {
+      "main": [
+        [
+          {
+            "node": "Attach Embedding to Pair1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Embedding to Pair1": {
+      "main": [
+        [
+          {
+            "node": "Search Qdrant1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Qdrant1": {
+      "main": [
+        [
+          {
+            "node": "Build Extraction Prompt1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Extraction Prompt1": {
+      "main": [
+        [
+          {
+            "node": "Any Chunks Found?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Chunks Found?1": {
+      "main": [
+        [
+          {
+            "node": "Create Not-Found Evidence1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Evidence Prompt1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Not-Found Evidence1": {
+      "main": [
+        [
+          {
+            "node": "POST Evidence to FastAPI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Evidence Prompt1": {
+      "main": [
+        [
+          {
+            "node": "Extract Run 1 (temp 0.0)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Run 2 (temp 0.3)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Run 3 (temp 0.6)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Evidence for FastAPI1": {
+      "main": [
+        [
+          {
+            "node": "POST Evidence to FastAPI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Evidence to FastAPI1": {
+      "main": [
+        [
+          {
+            "node": "Back to Split In Batches1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Back to Split In Batches1": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Complete1": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Event1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Event1": {
+      "main": [
+        [
+          {
+            "node": "Trigger WF-4 Verdict Engine1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Self-Consistency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetModel": {
+      "main": [
+        [
+          {
+            "node": "Fetch Confirmed Criteria1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "506ed308-e9fd-497f-849d-969f7e6942c7",
+  "meta": {
+    "instanceId": "90daaa8fe0c7b89846532888f01906cdce793de9ac34a9e8673cbfa6374d23b8"
+  },
+  "id": "NJsQXldHgaJi9N4o",
+  "tags": [
+    {
+      "updatedAt": "2026-05-06T11:03:09.787Z",
+      "createdAt": "2026-05-06T11:03:09.787Z",
+      "id": "EcAvyfacApwXl61p",
+      "name": "Self-Consistency"
+    },
+    {
+      "updatedAt": "2026-05-04T12:40:30.401Z",
+      "createdAt": "2026-05-04T12:40:30.401Z",
+      "id": "MfJvMcgvG7qi68WG",
+      "name": "Final"
+    },
+    {
+      "updatedAt": "2026-05-03T06:36:58.799Z",
+      "createdAt": "2026-05-03T06:36:58.799Z",
+      "id": "Z9epEy8VH84KgNNe",
+      "name": "smarttender"
+    },
+    {
+      "updatedAt": "2026-05-03T07:39:05.218Z",
+      "createdAt": "2026-05-03T07:39:05.218Z",
+      "id": "dpvsHJJTJqrBkP4A",
+      "name": "wf3-evidence"
+    }
+  ]
+}

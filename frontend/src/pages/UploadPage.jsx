@@ -10,11 +10,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { tenderApi, documentApi } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
-import { useTender } from "../App";
+import { useTender } from "../contexts";
 import {
   Upload,
-  Search,
-  BarChart3,
   FileText,
   Trash2,
   Plus,
@@ -28,7 +26,7 @@ import {
   Copy,
 } from "lucide-react";
 
-export default function UploadPage({ initialTab }) {
+export default function UploadPage() {
   const { activeTender, setActiveTender, tenders, setTenders } = useTender();
   const navigate = useNavigate();
   const [bidders, setBidders] = useState([]);
@@ -58,23 +56,57 @@ export default function UploadPage({ initialTab }) {
   const [guidelinesOpen, setGuidelinesOpen] = useState(true);
   const [activityOpen, setActivityOpen] = useState(true);
 
-  // ── Load tenders on mount ──
-  useEffect(() => {
-    loadTenders();
+  const loadTenders = useCallback(async () => {
+    try {
+      const { data } = await tenderApi.list();
+      const list = Array.isArray(data) ? data : [];
+      setTenders(list);
+      setActiveTender((current) => current || list[0]);
+    } catch (err) {
+      console.error("Failed to load tenders:", err);
+    }
+  }, [setActiveTender, setTenders]);
+
+  const loadBidders = useCallback(async (tenderId) => {
+    try {
+      const { data } = await tenderApi.listBidders(tenderId);
+      setBidders(data);
+    } catch (err) {
+      console.error("Failed to load bidders:", err);
+    }
   }, []);
 
+  const loadDocuments = useCallback(async (tenderId) => {
+    try {
+      const { data } = await documentApi.list(tenderId);
+      const docs = Array.isArray(data) ? data : [];
+      setTenderDocs(docs.filter((d) => !d.bidder_id));
+      setBidderDocs(docs.filter((d) => d.bidder_id));
+    } catch (err) {
+      console.error("Failed to load documents:", err);
+    }
+  }, []);
+
+  // ── Load tenders on mount ──
+   
+   
+  useEffect(() => {
+    loadTenders();
+  }, [loadTenders]);
+
   // ── Load data when tender changes ──
+   
   useEffect(() => {
     if (activeTender) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadBidders(activeTender.id);
       loadDocuments(activeTender.id);
     }
-  }, [activeTender]);
+  }, [activeTender, loadBidders, loadDocuments]);
 
   // ── Simulate parsing progress ──
   useEffect(() => {
     if (!processingFile) return;
-    setUploadProgress(0);
     const interval = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev >= 95) {
@@ -86,39 +118,6 @@ export default function UploadPage({ initialTab }) {
     }, 800);
     return () => clearInterval(interval);
   }, [processingFile]);
-
-  const loadTenders = async () => {
-    try {
-      const { data } = await tenderApi.list();
-      const list = Array.isArray(data) ? data : [];
-      setTenders(list);
-      if (list.length > 0 && !activeTender) {
-        setActiveTender(list[0]);
-      }
-    } catch (err) {
-      console.error("Failed to load tenders:", err);
-    }
-  };
-
-  const loadBidders = async (tenderId) => {
-    try {
-      const { data } = await tenderApi.listBidders(tenderId);
-      setBidders(data);
-    } catch (err) {
-      console.error("Failed to load bidders:", err);
-    }
-  };
-
-  const loadDocuments = async (tenderId) => {
-    try {
-      const { data } = await documentApi.list(tenderId);
-      const docs = Array.isArray(data) ? data : [];
-      setTenderDocs(docs.filter((d) => !d.bidder_id));
-      setBidderDocs(docs.filter((d) => d.bidder_id));
-    } catch (err) {
-      console.error("Failed to load documents:", err);
-    }
-  };
 
   const handleCreateTender = async (e) => {
     e.preventDefault();
@@ -159,6 +158,7 @@ export default function UploadPage({ initialTab }) {
     const file = e.target.files?.[0];
     if (!file || !activeTender) return;
     setTenderUploading(true);
+    setUploadProgress(0);
     setProcessingFile(file.name);
     try {
       const formData = new FormData();

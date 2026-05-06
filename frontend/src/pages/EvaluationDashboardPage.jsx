@@ -5,9 +5,9 @@
  * Shows per-bidder verdict cards with pass/fail/review status.
  */
 
-import { useState, useEffect } from "react";
-import { tenderApi, criteriaApi, verdictApi, evidenceApi } from "../api/client";
-import { useTender } from "../App";
+import { useState, useEffect, useCallback } from "react";
+import { tenderApi, criteriaApi, verdictApi } from "../api/client";
+import { useTender } from "../contexts";
 import VerdictBadge from "../components/VerdictBadge";
 import StatusBadge from "../components/StatusBadge";
 
@@ -18,21 +18,7 @@ export default function EvaluationDashboardPage() {
   const [verdictsByBidder, setVerdictsByBidder] = useState({});
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    tenderApi.list().then(({ data }) => {
-      const list = Array.isArray(data) ? data : [];
-      setTenders(list);
-      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
-    }).catch(() => setTenders([]));
-  }, []);
-
-  useEffect(() => {
-    if (activeTender) {
-      loadEvaluationData(activeTender.id);
-    }
-  }, [activeTender]);
-
-  const loadEvaluationData = async (tenderId) => {
+  const loadEvaluationData = useCallback(async (tenderId) => {
     setLoading(true);
     try {
       const [biddersRes, criteriaRes] = await Promise.all([
@@ -53,13 +39,29 @@ export default function EvaluationDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    tenderApi.list().then(({ data }) => {
+      const list = Array.isArray(data) ? data : [];
+      setTenders(list);
+      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+    }).catch(() => setTenders([]));
+  }, [activeTender, setActiveTender, setTenders]);
+
+   
+  useEffect(() => {
+    if (activeTender) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadEvaluationData(activeTender.id);
+    }
+  }, [activeTender, loadEvaluationData]);
 
   useEffect(() => {
     if (!activeTender) return;
     const interval = setInterval(() => loadEvaluationData(activeTender.id), 10000);
     return () => clearInterval(interval);
-  }, [activeTender]);
+  }, [activeTender, loadEvaluationData]);
 
   const getScoreSummary = (bidderId) => {
     const verdicts = verdictsByBidder[bidderId] || [];

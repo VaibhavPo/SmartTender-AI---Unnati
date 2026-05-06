@@ -6,8 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { tenderApi, verdictApi, criteriaApi, reportApi } from "../api/client";
-import { useTender } from "../App";
-import VerdictBadge from "../components/VerdictBadge";
+import { useTender } from "../contexts";
 
 export default function ReportPage() {
   const { activeTender, setActiveTender, tenders, setTenders } = useTender();
@@ -22,9 +21,9 @@ export default function ReportPage() {
     tenderApi.list().then(({ data }) => {
       const list = Array.isArray(data) ? data : [];
       setTenders(list);
-      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+      setActiveTender((current) => current || list[0]);
     }).catch(() => setTenders([]));
-  }, []);
+  }, [setActiveTender, setTenders]);
 
   useEffect(() => {
     if (activeTender) {
@@ -70,7 +69,7 @@ export default function ReportPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       alert("Report not ready yet. Try again in a few seconds.");
     }
   };

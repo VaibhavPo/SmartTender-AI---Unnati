@@ -5,10 +5,9 @@
  * see the AI's reasoning, and override with their own judgment.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { tenderApi, criteriaApi, verdictApi, evidenceApi } from "../api/client";
-import { useTender } from "../App";
-import VerdictBadge from "../components/VerdictBadge";
+import { useTender } from "../contexts";
 import { Search, Edit3, X, Check, Filter } from "lucide-react";
 
 export default function ManualReviewPage() {
@@ -28,19 +27,7 @@ export default function ManualReviewPage() {
   const [justification, setJustification] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    tenderApi.list().then(({ data }) => {
-      const list = Array.isArray(data) ? data : [];
-      setTenders(list);
-      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
-    }).catch(() => setTenders([]));
-  }, []);
-
-  useEffect(() => {
-    if (activeTender) loadData(activeTender.id);
-  }, [activeTender]);
-
-  const loadData = async (tenderId) => {
+  const loadData = useCallback(async (tenderId) => {
     setLoading(true);
     try {
       const [verdictsRes, criteriaRes, biddersRes, evidenceRes] = await Promise.all([
@@ -63,7 +50,23 @@ export default function ManualReviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    tenderApi.list().then(({ data }) => {
+      const list = Array.isArray(data) ? data : [];
+      setTenders(list);
+      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+    }).catch(() => setTenders([]));
+  }, [activeTender, setActiveTender, setTenders]);
+
+   
+  useEffect(() => {
+    if (activeTender) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadData(activeTender.id);
+    }
+  }, [activeTender, loadData]);
 
   const handleOverride = async () => {
     if (!overrideTarget || justification.trim().length < 10) {

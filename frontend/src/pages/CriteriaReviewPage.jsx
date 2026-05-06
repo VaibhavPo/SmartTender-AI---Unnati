@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { tenderApi, criteriaApi, documentApi } from "../api/client";
-import { useTender } from "../App";
+import { useTender } from "../contexts";
 import CriterionCard from "../components/CriterionCard";
 
 export default function CriteriaReviewPage() {
@@ -22,9 +22,9 @@ export default function CriteriaReviewPage() {
     tenderApi.list().then(({ data }) => {
       const list = Array.isArray(data) ? data : [];
       setTenders(list);
-      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+      setActiveTender((current) => current || list[0]);
     }).catch(() => setTenders([]));
-  }, []);
+  }, [setActiveTender, setTenders]);
 
   useEffect(() => {
     if (activeTender) {
@@ -32,7 +32,7 @@ export default function CriteriaReviewPage() {
       documentApi.list(activeTender.id).then(({ data }) => setDocuments(data));
       tenderApi.listBidders(activeTender.id).then(({ data }) => setBidders(data));
     }
-  }, [activeTender]);
+  }, [activeTender, setActiveTender, setTenders]);
 
   const handleExtract = async () => {
     if (!activeTender) return;
