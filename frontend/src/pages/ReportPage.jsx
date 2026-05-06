@@ -6,11 +6,11 @@
 
 import { useState, useEffect } from "react";
 import { tenderApi, verdictApi, criteriaApi, reportApi } from "../api/client";
+import { useTender } from "../App";
 import VerdictBadge from "../components/VerdictBadge";
 
 export default function ReportPage() {
-  const [tenders, setTenders] = useState([]);
-  const [activeTender, setActiveTender] = useState(null);
+  const { activeTender, setActiveTender, tenders, setTenders } = useTender();
   const [bidders, setBidders] = useState([]);
   const [verdicts, setVerdicts] = useState([]);
   const [criteria, setCriteria] = useState([]);
@@ -19,7 +19,11 @@ export default function ReportPage() {
   const [includeAuditTrail, setIncludeAuditTrail] = useState(true);
 
   useEffect(() => {
-    tenderApi.list().then(({ data }) => setTenders(Array.isArray(data) ? data : [])).catch(() => setTenders([]));
+    tenderApi.list().then(({ data }) => {
+      const list = Array.isArray(data) ? data : [];
+      setTenders(list);
+      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+    }).catch(() => setTenders([]));
   }, []);
 
   useEffect(() => {

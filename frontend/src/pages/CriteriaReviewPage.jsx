@@ -7,11 +7,11 @@
 
 import { useState, useEffect } from "react";
 import { tenderApi, criteriaApi, documentApi } from "../api/client";
+import { useTender } from "../App";
 import CriterionCard from "../components/CriterionCard";
 
 export default function CriteriaReviewPage() {
-  const [tenders, setTenders] = useState([]);
-  const [activeTender, setActiveTender] = useState(null);
+  const { activeTender, setActiveTender, tenders, setTenders } = useTender();
   const [criteria, setCriteria] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [bidders, setBidders] = useState([]);
@@ -19,7 +19,11 @@ export default function CriteriaReviewPage() {
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    tenderApi.list().then(({ data }) => setTenders(Array.isArray(data) ? data : [])).catch(() => setTenders([]));
+    tenderApi.list().then(({ data }) => {
+      const list = Array.isArray(data) ? data : [];
+      setTenders(list);
+      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+    }).catch(() => setTenders([]));
   }, []);
 
   useEffect(() => {

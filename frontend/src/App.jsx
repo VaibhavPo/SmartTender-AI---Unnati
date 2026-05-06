@@ -2,7 +2,7 @@
  * SmartTender AI — Main App with Stitch-style Layout
  * ====================================================
  * Top nav bar with horizontal tabs + left sidebar with tender context
- * + main content area. Matches the Stitch Ingestion Portal design.
+ * + main content area. All routes are properly separated.
  */
 
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from "react-router-dom";
@@ -26,13 +26,16 @@ import {
   CheckSquare,
   Sparkles,
   ScrollText,
+  Eye,
 } from "lucide-react";
 
 import UploadPage from "./pages/UploadPage";
+import BidderDocsPage from "./pages/BidderDocsPage";
 import CriteriaReviewPage from "./pages/CriteriaReviewPage";
 import EvaluationDashboardPage from "./pages/EvaluationDashboardPage";
 import ManualReviewPage from "./pages/ManualReviewPage";
 import ReportPage from "./pages/ReportPage";
+import AuditLogsPage from "./pages/AuditLogsPage";
 
 // ── Theme Context ──
 const ThemeContext = createContext();
@@ -46,20 +49,20 @@ export function useTender() {
   return useContext(TenderContext);
 }
 
-// Top nav tabs
+// Top nav tabs — each points to a UNIQUE route
 const topTabs = [
   { path: "/", label: "Upload" },
-  { path: "/criteria", label: "Review" },
+  { path: "/review", label: "Review" },
   { path: "/evaluation", label: "Dashboard" },
   { path: "/report", label: "Reports" },
 ];
 
-// Left sidebar items
+// Left sidebar items — tender-specific navigation
 const sidebarItems = [
   { path: "/", label: "Current Tender", Icon: FolderOpen },
   { path: "/bidder-docs", label: "Bidder Documents", Icon: Users },
   { path: "/criteria", label: "Compliance Matrix", Icon: CheckSquare },
-  { path: "/ai-insights", label: "AI Insights", Icon: Sparkles },
+  { path: "/review", label: "Manual Review", Icon: Eye },
   { path: "/audit", label: "Audit Logs", Icon: ScrollText },
 ];
 
@@ -145,7 +148,6 @@ function SettingsDropdown() {
 function TopNavBar() {
   return (
     <header className="flex items-center justify-between px-5 py-0 bg-white dark:bg-[#0F172A] border-b border-black/[0.08] dark:border-white/[0.08] h-14">
-      {/* Left: Logo + Tabs */}
       <div className="flex items-center gap-8">
         <h1 className="font-heading font-extrabold text-[15px] text-brand-500 dark:text-brand-200 tracking-tight whitespace-nowrap">
           Unnati SmartTender AI
@@ -170,7 +172,6 @@ function TopNavBar() {
         </nav>
       </div>
 
-      {/* Right: Actions */}
       <div className="flex items-center gap-2">
         <button className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-surface-200 dark:hover:bg-white/10 transition-colors text-surface-500 dark:text-gray-400 relative">
           <Bell size={18} strokeWidth={2} />
@@ -191,17 +192,15 @@ function LeftSidebar() {
 
   return (
     <nav className="w-52 bg-white dark:bg-[#0F172A] border-r border-black/[0.08] dark:border-white/[0.08] flex flex-col">
-      {/* Tender info */}
       <div className="px-4 py-4 border-b border-black/[0.06] dark:border-white/[0.06]">
         <p className="text-[11px] font-bold text-brand-500 dark:text-brand-300 tracking-wide">
-          {activeTender ? `TENDER-${activeTender.id?.slice(0, 8)?.toUpperCase()}` : "NO TENDER"}
+          {activeTender ? (activeTender.reference_number || `TENDER-${activeTender.id?.slice(0, 8)?.toUpperCase()}`) : "NO TENDER"}
         </p>
         <p className="text-[10px] text-surface-500 dark:text-gray-500 mt-0.5">
           Federal Procurement Div
         </p>
       </div>
 
-      {/* Nav items */}
       <div className="flex-1 py-2 px-2 flex flex-col gap-0.5">
         {sidebarItems.map(({ path, label, Icon }) => (
           <NavLink
@@ -222,7 +221,6 @@ function LeftSidebar() {
         ))}
       </div>
 
-      {/* Bottom */}
       <div className="px-2 pb-3 space-y-1">
         <NavLink
           to="/report"
@@ -270,23 +268,21 @@ function App() {
       <TenderContext.Provider value={{ activeTender, setActiveTender, tenders, setTenders }}>
         <Router>
           <div className="flex flex-col h-screen overflow-hidden bg-surface-100 dark:bg-surface-900">
-            {/* Top Navigation */}
             <TopNavBar />
 
             <div className="flex flex-1 overflow-hidden">
-              {/* Left Sidebar */}
               <LeftSidebar />
 
-              {/* Main Content */}
               <main className="flex-1 overflow-y-auto bg-surface-100 dark:bg-surface-900">
                 <div className="p-6 max-w-7xl mx-auto">
                   <Routes>
                     <Route path="/" element={<UploadPage />} />
-                    <Route path="/bidder-docs" element={<UploadPage initialTab="bidder" />} />
+                    <Route path="/bidder-docs" element={<BidderDocsPage />} />
                     <Route path="/criteria" element={<CriteriaReviewPage />} />
                     <Route path="/evaluation" element={<EvaluationDashboardPage />} />
                     <Route path="/review" element={<ManualReviewPage />} />
                     <Route path="/report" element={<ReportPage />} />
+                    <Route path="/audit" element={<AuditLogsPage />} />
                   </Routes>
                 </div>
               </main>

@@ -7,19 +7,23 @@
 
 import { useState, useEffect } from "react";
 import { tenderApi, criteriaApi, verdictApi, evidenceApi } from "../api/client";
+import { useTender } from "../App";
 import VerdictBadge from "../components/VerdictBadge";
 import StatusBadge from "../components/StatusBadge";
 
 export default function EvaluationDashboardPage() {
-  const [tenders, setTenders] = useState([]);
-  const [activeTender, setActiveTender] = useState(null);
+  const { activeTender, setActiveTender, tenders, setTenders } = useTender();
   const [bidders, setBidders] = useState([]);
   const [criteria, setCriteria] = useState([]);
   const [verdictsByBidder, setVerdictsByBidder] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    tenderApi.list().then(({ data }) => setTenders(Array.isArray(data) ? data : [])).catch(() => setTenders([]));
+    tenderApi.list().then(({ data }) => {
+      const list = Array.isArray(data) ? data : [];
+      setTenders(list);
+      if (list.length > 0 && !activeTender) setActiveTender(list[0]);
+    }).catch(() => setTenders([]));
   }, []);
 
   useEffect(() => {
