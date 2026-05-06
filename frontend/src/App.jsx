@@ -59,10 +59,10 @@ const topTabs = [
 
 // Left sidebar items — tender-specific navigation
 const sidebarItems = [
-  { path: "/evaluation", label: "Evaluation Dashboard", Icon: BarChart3 },
   { path: "/", label: "Ingestion Portal", Icon: FolderOpen },
   { path: "/bidder-docs", label: "Bidder Documents", Icon: Users },
   { path: "/criteria", label: "Compliance Matrix", Icon: CheckSquare },
+  { path: "/evaluation", label: "Evaluation Dashboard", Icon: BarChart3 },
   { path: "/review", label: "Manual Review", Icon: Eye },
   { path: "/audit", label: "Audit Logs", Icon: ScrollText },
 ];

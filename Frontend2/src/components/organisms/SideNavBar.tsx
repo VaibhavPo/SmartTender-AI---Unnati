@@ -4,9 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 
 const navItems = [
-  { icon: 'dashboard', label: 'Evaluation Dashboard', to: '/dashboard' },
   { icon: 'upload_file', label: 'Ingestion Portal', to: '/upload' },
   { icon: 'fact_check', label: 'Criteria Review', to: '/review' },
+  { icon: 'dashboard', label: 'Evaluation Dashboard', to: '/dashboard' },
   { icon: 'rate_review', label: 'Manual Review', to: '/manual-review' },
   { icon: 'assessment', label: 'Reports', to: '/reports' },
   { icon: 'history', label: 'Audit Logs', to: '/audit' },
