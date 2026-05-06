@@ -1,35 +1,32 @@
-# SmartTender AI
+# SmartTender AI: Unnati
 
-**AI-assisted tender evaluation platform for government procurement.**
-Built for the CRPF Hackathon, Theme 3.
+**AI-Assisted Procurement & Technical Evaluation for Government Tenders.**  
+*Built for the CRPF Hackathon | Theme 3: AI-based Tender Evaluation.*
 
-> An officer uploads a tender PDF and bidder submissions. The system
-> extracts evaluation criteria, finds evidence in each bidder's documents,
-> renders pass/fail verdicts with reasoning, and generates a signed PDF
-> report — all with full audit trail.
+> **The Problem:** Technical evaluation is a bottleneck prone to human error, fatigue, and lack of transparency.  
+> **The Solution:** SmartTender AI automates the "grunt work" of document parsing and evidence matching, allowing officers to focus on high-level decision-making with a 100% auditable trail.
 
 ---
 
-## Architecture
+## 🏛️ Core Philosophy: "Officer-in-the-Loop"
 
-```
-┌──────────────┐     ┌──────────────┐     ┌─────────────────────┐
-│   React UI   │────▶│  FastAPI API  │────▶│      PostgreSQL      │
-│  (Tailwind)  │◀────│  (thin CRUD)  │◀────│  (append-only audit) │
-└──────────────┘     └──────┬───────┘     └─────────────────────┘
-                            │ webhooks
-                            ▼
-                     ┌──────────────┐
-                     │     n8n      │──── Docker Model Runner
-                     │ (AI workflows│     (mistral-7b, nomic,
-                     │  orchestrator)│      llava-7b)
-                     └──────┬───────┘
-                            │ HTTP
-                     ┌──────┴───────┐
-                     │   Docling    │     ┌──────────┐
-                     │  (OCR svc)   │     │  Qdrant  │
-                     └──────────────┘     │ (vectors)│
-                                          └──────────┘
+Unlike "black-box" AI, **Unnati** follows a structured pipeline where AI proposes and humans dispose.
+*   **Automated Extraction:** AI identifies mandatory criteria from complex tender PDFs.
+*   **Grounded Evidence:** Every "Pass/Fail" verdict is linked to a specific page and paragraph in the bidder's document.
+*   **Append-Only Transparency:** Every change, override, or AI inference is logged in an immutable audit trail—critical for government accountability.
+
+---
+
+## 🛠️ Tech Stack & Architecture
+
+```mermaid
+graph TD
+    UI[React + Tailwind] <--> API[FastAPI CRUD Layer]
+    API <--> DB[(PostgreSQL Audit Trail)]
+    API -- Webhooks --> N8N{n8n Orchestrator}
+    N8N --> Doc[Docling OCR Svc]
+    N8N --> LLM[Docker Model Runner]
+    N8N --> VDB[(Qdrant Vector DB)]
 ```
 
 **Strict three-way separation:**
