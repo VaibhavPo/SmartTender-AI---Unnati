@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -111,7 +112,7 @@ async def criteria_extracted(body: CriteriaResult, db: AsyncSession = Depends(ge
             c.name.strip().casefold(),
             c.description.strip().casefold(),
             c.criterion_type,
-            (c.threshold_value or "").strip().casefold(),
+            str(c.threshold_value or "").strip().casefold(),
             (c.unit or "").strip().casefold(),
             c.is_mandatory,
             (c.section_reference or "").strip().casefold(),
@@ -266,9 +267,8 @@ async def verdict_rendered(body: VerdictRecord, db: AsyncSession = Depends(get_d
     """
     Called by: n8n Workflow 4 for each verdict decision.
     """
-    # Prevent duplicate verdict rows when the workflow is run more than once.
     duplicate_check = await db.execute(
-        select(VerdictDB.id)
+        select(VerdictDB)
         .where(
             VerdictDB.tender_id == body.tender_id,
             VerdictDB.bidder_id == body.bidder_id,
@@ -277,15 +277,37 @@ async def verdict_rendered(body: VerdictRecord, db: AsyncSession = Depends(get_d
         )
         .limit(1)
     )
-    existing_id = duplicate_check.scalar_one_or_none()
-    if existing_id:
+    existing_verdict = duplicate_check.scalar_one_or_none()
+
+    if existing_verdict:
+        # Overwrite existing verdict
+        existing_verdict.evidence_id = body.evidence_id
+        existing_verdict.verdict = body.verdict
+        existing_verdict.reason = body.reason
+        existing_verdict.confidence = body.confidence
+        existing_verdict.decided_by = body.decided_by
+        existing_verdict.decided_at = datetime.now(timezone.utc)
+
+        # Audit event for overwrite
+        audit = AuditEventDB(
+            id=str(uuid.uuid4()),
+            tender_id=body.tender_id,
+            event_type="VERDICT_RENDERED",
+            actor=f"n8n_workflow_4_{body.decided_by}",
+            entity_type="verdict",
+            entity_id=existing_verdict.id,
+            detail=f"RE-RENDERED: Verdict {body.verdict} for bidder {body.bidder_id}, "
+                   f"criterion {body.criterion_id} (confidence: {body.confidence})",
+        )
+        db.add(audit)
+
         logger.info(
-            "Duplicate verdict ignored for bidder=%s, criterion=%s, version=%s",
+            "Previous verdict overwritten for bidder=%s, criterion=%s, version=%s",
             body.bidder_id,
             body.criterion_id,
             body.version,
         )
-        return {"message": "Duplicate verdict ignored", "verdict_id": existing_id}
+        return {"message": "Previous verdict overwritten", "verdict_id": existing_verdict.id}
 
     verdict = VerdictDB(
         id=body.id or str(uuid.uuid4()),

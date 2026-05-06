@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Upload | Unnati SmartTender AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "on-surface": "#dde2f8",
+                        "on-surface-variant": "#c3c5d8",
+                        "background": "#0d1322",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "secondary-container": "#2f4682",
+                        "tertiary-fixed": "#d3e4fe",
+                        "surface-variant": "#2f3445",
+                        "surface-container-lowest": "#080e1d",
+                        "secondary": "#b2c5ff",
+                        "outline": "#8d90a1",
+                        "on-tertiary-container": "#fcfbff",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "on-primary-fixed": "#00164f",
+                        "surface-container": "#191f2f",
+                        "primary-fixed": "#dce1ff",
+                        "primary": "#b6c4ff",
+                        "on-secondary-fixed": "#001849",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#65758c",
+                        "surface-container-low": "#151b2b",
+                        "on-primary-container": "#fdfaff",
+                        "inverse-surface": "#dde2f8",
+                        "surface": "#0d1322",
+                        "secondary-fixed": "#dae2ff",
+                        "on-error": "#690005",
+                        "on-tertiary": "#213145",
+                        "on-primary-fixed-variant": "#003ab1",
+                        "tertiary": "#b7c8e1",
+                        "inverse-primary": "#004fe6",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#33394a",
+                        "surface-container-highest": "#2f3445",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "on-secondary-fixed-variant": "#2d447f",
+                        "surface-tint": "#b6c4ff",
+                        "on-primary": "#00277e",
+                        "surface-dim": "#0d1322",
+                        "surface-container-high": "#242a3a",
+                        "on-background": "#dde2f8",
+                        "primary-container": "#2e66ff",
+                        "inverse-on-surface": "#2a3040",
+                        "outline-variant": "#434655",
+                        "on-secondary-container": "#a0b7fa",
+                        "on-secondary": "#122d67"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "sm": "8px",
+                        "margin": "32px",
+                        "xl": "48px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "gutter": "24px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "headline-lg": ["Public Sans"],
+                        "body-sm": ["Public Sans"],
+                        "body-lg": ["Public Sans"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Public Sans"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["40px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.25", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { background-color: #0d1322; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="font-body-md text-on-background">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-margin">
+<span class="font-headline-md text-headline-md font-bold text-primary">Unnati SmartTender AI</span>
+<nav class="hidden md:flex items-center gap-md h-full">
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1 transition-colors" href="#">Upload</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Review</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Reports</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-2">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-surface"></span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-2">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-outline-variant border border-outline">
+<img alt="User Administrator Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-9UZ6-33miGc7pY6sytY5Rf4UKi-s4PBHvL7BBTlq2EvvdwyJkxEa2XRiazbUVRF8T6YGhyOCeTiCjwzQp-uG4enmIwaO9LuPDXWJ6ZjBSIGjDujE5OBjtpaQuVDVwdTHN7KSIGr1l7QA67ApsitVQwkqLJTMsQPctWNh2jrrn-aln5S93GMcFnXUs8APx5HNcyfWqL3yh4P7d0MbM3rKmUwQuGUAE5Um5zIn2YTXZXZku-HtiY60dpiS8KHSCCYINxcA1fUmA7Q"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 flex flex-col py-md bg-surface-container-low border-r border-outline-variant">
+<div class="px-gutter mb-margin">
+<div class="flex items-center gap-xs mb-base">
+<span class="font-label-sm text-label-sm text-on-surface-variant">TENDER-2024-081</span>
+</div>
+<div class="font-body-sm text-on-surface text-sm opacity-70">Federal Procurement Div</div>
+</div>
+<nav class="flex-grow space-y-1">
+<a class="flex items-center px-gutter py-3 bg-secondary-container text-on-secondary-container font-bold border-l-4 border-primary" href="#">
+<span class="material-symbols-outlined mr-3">description</span>
+<span class="font-body-md text-body-md">Current Tender</span>
+</a>
+<a class="flex items-center px-gutter py-3 text-on-surface-variant hover:bg-surface-variant transition-all" href="#">
+<span class="material-symbols-outlined mr-3">folder_open</span>
+<span class="font-body-md text-body-md">Bidder Documents</span>
+</a>
+<a class="flex items-center px-gutter py-3 text-on-surface-variant hover:bg-surface-variant transition-all" href="#">
+<span class="material-symbols-outlined mr-3">fact_check</span>
+<span class="font-body-md text-body-md">Compliance Matrix</span>
+</a>
+<!-- De-emphasized Navigation -->
+<a class="flex items-center px-gutter py-2 text-on-surface-variant/50 hover:text-on-surface-variant hover:bg-surface-variant transition-all mt-4" href="#">
+<span class="material-symbols-outlined mr-3 text-sm">psychology</span>
+<span class="font-body-sm text-body-sm">AI Insights</span>
+</a>
+<a class="flex items-center px-gutter py-2 text-on-surface-variant/50 hover:text-on-surface-variant hover:bg-surface-variant transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-sm">history</span>
+<span class="font-body-sm text-body-sm">Audit Logs</span>
+</a>
+</nav>
+<div class="px-gutter mt-auto pt-md border-t border-outline-variant space-y-2">
+<button class="w-full bg-primary text-on-primary py-2 px-4 rounded font-bold text-sm tracking-wide hover:brightness-110 transition-all">
+                Generate Report
+            </button>
+<div class="flex items-center gap-md py-2 cursor-pointer hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Support</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-gutter">
+<div class="max-w-5xl mx-auto space-y-gutter">
+<!-- Simplified Process Header -->
+<div class="flex justify-between items-center bg-surface-container-high p-6 border border-outline-variant rounded">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary">Ingestion Portal</h1>
+<p class="font-body-sm text-on-surface-variant">Phase: Current Tender Document Processing</p>
+</div>
+<div class="flex items-center gap-8">
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">1</div>
+<span class="font-label-sm text-[10px] uppercase">Upload</span>
+</div>
+<div class="w-12 h-[1px] bg-outline-variant"></div>
+<div class="flex flex-col items-center gap-xs opacity-40">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface flex items-center justify-center font-bold">2</div>
+<span class="font-label-sm text-[10px] uppercase">Extract</span>
+</div>
+<div class="w-12 h-[1px] bg-outline-variant"></div>
+<div class="flex flex-col items-center gap-xs opacity-40">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface flex items-center justify-center font-bold">3</div>
+<span class="font-label-sm text-[10px] uppercase">Evaluate</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Primary Upload Column -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<!-- Primary Tender Upload Area -->
+<div class="bg-surface-container-lowest border border-outline-variant p-margin shadow-sm rounded">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-1">Tender Document</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">The core procurement document for Docling AI extraction.</p>
+</div>
+<span class="bg-primary-container text-on-primary-container px-3 py-1 rounded text-xs font-bold uppercase tracking-wider">Required</span>
+</div>
+<div class="border-2 border-dashed border-primary bg-primary/5 p-12 flex flex-col items-center justify-center relative overflow-hidden rounded">
+<!-- Progress Overlay -->
+<div class="absolute inset-0 bg-background/90 z-10 flex flex-col items-center justify-center p-gutter">
+<div class="w-full max-w-md bg-surface-variant h-1 rounded-full overflow-hidden mb-sm">
+<div class="bg-primary h-full w-[65%]" style="transition: width 0.5s ease"></div>
+</div>
+<div class="flex justify-between w-full max-w-md mb-md">
+<span class="font-mono text-xs text-primary">docling_engine_v2: parsing</span>
+<span class="font-mono text-xs text-primary">65%</span>
+</div>
+<div class="flex items-center gap-sm animate-pulse">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="font-label-sm text-label-sm text-primary uppercase">AI Extraction in Progress...</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-4xl text-primary mb-sm">upload_file</span>
+<p class="font-headline-md text-headline-md mb-base text-on-surface">Click or drag and drop tender PDF</p>
+</div>
+<div class="mt-md">
+<div class="flex items-center gap-sm p-3 bg-surface-container border border-outline-variant rounded max-w-md">
+<span class="material-symbols-outlined text-primary">picture_as_pdf</span>
+<div class="overflow-hidden">
+<div class="font-label-md text-on-surface truncate">FEDERAL_RFP_GSA_8812.pdf</div>
+<div class="text-[10px] text-on-surface-variant">42.5 MB • Parsing</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bidder Documents Area -->
+<div class="bg-surface-container-lowest border border-outline-variant p-margin shadow-sm rounded">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-1">Bidder Documents</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Upload support files and technical appendices.</p>
+</div>
+</div>
+<div class="border-2 border-dashed border-outline-variant p-8 flex flex-col items-center justify-center hover:bg-surface-variant transition-colors cursor-pointer mb-md rounded">
+<span class="material-symbols-outlined text-2xl text-on-surface-variant mb-base">folder_zip</span>
+<p class="font-body-md text-body-md font-bold text-on-surface">Upload Batch</p>
+</div>
+<div class="border border-outline-variant rounded overflow-hidden">
+<table class="w-full text-left font-body-sm">
+<thead class="bg-surface-container-high border-b border-outline-variant">
+<tr>
+<th class="p-3 font-label-sm text-[10px] uppercase text-on-surface-variant">Filename</th>
+<th class="p-3 font-label-sm text-[10px] uppercase text-on-surface-variant">Status</th>
+<th class="p-3"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-3 font-bold text-on-surface">technical_spec_v1.docx</td>
+<td class="p-3">
+<div class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[10px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] font-bold">READY</span>
+</div>
+</td>
+<td class="p-3 text-right">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-error text-sm">delete</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Secondary Collapsible Column -->
+<div class="col-span-12 lg:col-span-4 space-y-md">
+<!-- Collapsible Ingestion Guidelines -->
+<details class="group bg-surface-container border border-outline-variant rounded" open="">
+<summary class="flex justify-between items-center p-4 cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">info</span>
+<span class="font-body-md font-bold text-on-surface">Ingestion Guidelines</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-4 pb-4 border-t border-outline-variant pt-3">
+<ul class="space-y-3 font-body-sm text-on-surface-variant">
+<li class="flex gap-2">
+<span class="text-primary">•</span>
+<span>Ensure PDF documents have an accessible text layer for 99% accuracy.</span>
+</li>
+<li class="flex gap-2">
+<span class="text-primary">•</span>
+<span>System auto-identifies table structures and nested appendices.</span>
+</li>
+<li class="flex gap-2">
+<span class="text-primary">•</span>
+<span>Extraction typically takes 2-5 minutes per large document.</span>
+</li>
+</ul>
+</div>
+</details>
+<!-- Collapsible Recent Uploads -->
+<details class="group bg-surface-container-lowest border border-outline-variant rounded">
+<summary class="flex justify-between items-center p-4 cursor-pointer hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">history</span>
+<span class="font-body-md font-bold text-on-surface">Recent Activity</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="divide-y divide-outline-variant border-t border-outline-variant">
+<div class="p-3 flex items-start gap-2 hover:bg-surface-container transition-all">
+<div class="w-6 h-6 flex items-center justify-center bg-secondary-container text-on-secondary-container rounded">
+<span class="material-symbols-outlined text-xs">description</span>
+</div>
+<div class="flex-grow min-w-0">
+<div class="font-body-sm font-bold truncate text-on-surface">Tender_Section_7_Annex.pdf</div>
+<div class="text-[9px] text-primary uppercase font-bold">Success • 12:45 PM</div>
+</div>
+</div>
+<div class="p-2 text-center">
+<button class="text-[10px] font-label-sm text-primary hover:underline uppercase tracking-wider">View All Activities</button>
+</div>
+</div>
+</details>
+<!-- Minimal AI Status Card -->
+<div class="bg-surface-container border border-outline-variant p-4 flex items-center gap-4 rounded">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(182,196,255,0.6)]"></div>
+<div>
+<div class="font-label-sm text-[10px] text-on-surface-variant uppercase">Docling Engine</div>
+<div class="text-[10px] font-bold text-primary uppercase">Operational • 240ms</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

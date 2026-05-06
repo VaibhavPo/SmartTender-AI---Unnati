@@ -81,20 +81,44 @@ try {
 
 ### Node 8: Assign UUIDs (Code)
 - **Type**: Code (JavaScript)
-- **Purpose**: Add UUID and order_index to each criterion
+- **Purpose**: Add UUID and order_index to each criterion; use semantic criterion types directly
 ```javascript
-const crypto = require('crypto');
-const criteria = $input.first().json.criteria;
-const tender_id = $input.first().json.tender_id;
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+const input = $input.first().json;
+const criteria = input.criteria || [];
+const tender_id = input.tender_id;
+const document_id = input.document_id;
 
 const result = criteria.map((c, i) => ({
-  id: crypto.randomUUID(),
+  id: uuidv4(),
   tender_id,
+  name: c.name,
+  description: c.description,
+  criterion_type: c.criterion_type,                  // ✅ semantic: numeric|date|boolean|text
+  threshold_value: c.threshold_value != null ? String(c.threshold_value) : null,
+  unit: c.unit ?? null,
+  is_mandatory: c.is_mandatory ?? false,
+  section_reference: c.section_reference ?? null,
   order_index: i,
-  ...c
+
+  _meta: {
+    document_id,
+    extracted_by: 'mistral-7b-instruct-q4',
+    extracted_at: new Date().toISOString(),
+  }
 }));
 
-return [{ json: { tender_id, criteria: result } }];
+return [{ json: {
+  tender_id,
+  criteria: result,
+  _audit: { document_id, total: result.length }
+}}];
 ```
 
 ### Node 9: POST to FastAPI

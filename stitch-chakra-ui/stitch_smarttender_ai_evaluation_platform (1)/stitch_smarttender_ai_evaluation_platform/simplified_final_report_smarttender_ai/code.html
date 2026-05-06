@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Final Report Preview - Unnati SmartTender AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Public+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#520002",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-surface-variant": "#444650",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "secondary-container": "#dcdddd",
+                        "background": "#fbf9f8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#f0eded",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb4aa",
+                        "tertiary-fixed": "#ffdad5",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#c5c6d1",
+                        "secondary-fixed": "#e2e2e2",
+                        "primary-fixed": "#dae2ff",
+                        "surface": "#fbf9f8",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#930009",
+                        "surface-tint": "#455c99",
+                        "on-secondary-container": "#5f6161",
+                        "outline": "#757681",
+                        "on-background": "#1b1c1c",
+                        "inverse-primary": "#b2c5ff",
+                        "primary-container": "#00205b",
+                        "on-tertiary-container": "#ff463c",
+                        "on-primary-fixed": "#001849",
+                        "on-tertiary-fixed": "#410002",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "surface-dim": "#dcd9d9",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#2a0001",
+                        "surface-bright": "#fbf9f8",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e4e2e1",
+                        "inverse-on-surface": "#f3f0f0",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-primary-container": "#738aca",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1b1c1c",
+                        "surface-container-high": "#eae8e7",
+                        "secondary": "#5d5f5f",
+                        "surface-container-highest": "#e4e2e1",
+                        "on-primary-fixed-variant": "#2d447f",
+                        "inverse-surface": "#303030",
+                        "primary": "#000d2f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "stack-md": "16px",
+                        "gutter": "16px",
+                        "stack-sm": "8px",
+                        "unit": "4px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "data-mono": ["monospace"],
+                        "body-sm": ["Inter"],
+                        "h2": ["Public Sans"],
+                        "body-lg": ["Inter"],
+                        "h3": ["Public Sans"],
+                        "h1": ["Public Sans"],
+                        "label-caps": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "data-mono": ["13px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "body-sm": ["12px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                        "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "h3": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "h1": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .print-container { padding: 0; border: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16 bg-surface dark:bg-background border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-stack-lg">
+<span class="font-h2 text-h2 font-bold text-primary dark:text-primary-fixed-dim">Unnati SmartTender AI</span>
+<div class="hidden md:flex gap-stack-md">
+<a class="font-h3 text-h3 hover:text-primary transition-colors text-on-surface-variant" href="#">Upload</a>
+<a class="font-h3 text-h3 hover:text-primary transition-colors text-on-surface-variant" href="#">Review</a>
+<a class="font-h3 text-h3 hover:text-primary transition-colors text-on-surface-variant" href="#">Dashboard</a>
+<a class="font-h3 text-h3 text-primary border-b-2 border-primary pb-1" href="#">Reports</a>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="material-symbols-outlined text-on-surface-variant p-2">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant p-2">settings</button>
+<img alt="User Administrator Profile" class="w-10 h-10 rounded-full border border-outline" data-alt="A professional headshot of a senior federal administrator in a formal suit, positioned in a modern office with soft architectural lighting. The color palette is composed of muted greys and deep blues, reflecting an authoritative and institutional atmosphere consistent with governmental procurement standards." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGkrUuBqiaW_I2fxEXt9BLl47vxuG2mBI8n6AKfsx3AwASQ572BiUFZxSC9qwxIPAjkxspFnTR6T1CfRva88Ium2RS5y-xv3Jqovla19_YVFnc5HM7EWDfy5hF0fDWD9fkUVB40sjYwCv-FL90RegndG9rJA0Ihc0H7Deu8sZm8ljzqW-orAaIqFbhG5Ar34e20jDF1qHaGYsbPfCB_Rwa3ClOX_frvQP1MHB00I1s2AgYUkkqBEdWRTPVozZU6YagbBwxjFmh-yc"/>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 flex flex-col py-stack-md bg-surface-container-low dark:bg-tertiary border-r border-outline-variant dark:border-outline no-print">
+<div class="px-gutter mb-stack-lg">
+<div class="flex items-center gap-stack-sm mb-unit">
+<span class="font-label-caps text-label-caps text-on-surface-variant">PROJECT EMBLEM</span>
+</div>
+<p class="font-h3 text-h3 text-primary">Tender-2024-081</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Federal Procurement Div</p>
+</div>
+<nav class="flex-1 space-y-unit">
+<a class="flex items-center px-gutter py-3 gap-stack-sm text-on-surface-variant hover:bg-secondary-container transition-all" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md">Current Tender</span>
+</a>
+<a class="flex items-center px-gutter py-3 gap-stack-sm text-on-surface-variant hover:bg-secondary-container transition-all" href="#">
+<span class="material-symbols-outlined">folder_open</span>
+<span class="font-body-md">Bidder Documents</span>
+</a>
+<a class="flex items-center px-gutter py-3 gap-stack-sm text-on-surface-variant hover:bg-secondary-container transition-all" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-body-md">Compliance Matrix</span>
+</a>
+<a class="flex items-center px-gutter py-3 gap-stack-sm text-on-surface-variant hover:bg-secondary-container transition-all" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md">AI Insights</span>
+</a>
+<a class="flex items-center px-gutter py-3 gap-stack-sm font-bold border-primary text-primary font-bold bg-surface-container" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-body-md">Audit Logs</span>
+</a>
+</nav>
+<div class="mt-auto px-gutter py-stack-md border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary py-stack-sm font-label-caps text-label-caps mb-stack-md flex justify-center items-center gap-unit">
+<span class="material-symbols-outlined text-[16px]">file_download</span>
+                Generate Report
+            </button>
+<div class="space-y-stack-sm">
+<a class="flex items-center gap-stack-sm text-on-surface-variant text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]">help_outline</span> Support
+                </a>
+<a class="flex items-center gap-stack-sm text-on-surface-variant text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]">archive</span> Archive
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 mt-16 p-stack-lg flex flex-col items-center">
+<!-- Action Toolbar -->
+<div class="w-full max-w-5xl flex justify-between items-end mb-stack-lg no-print">
+<div>
+<h1 class="font-h1 text-h1 text-primary">Final Report Preview</h1>
+<p class="text-on-surface-variant font-body-md">Review and verify the AI-generated procurement summary before final signing.</p>
+</div>
+<div class="flex gap-stack-sm">
+<button class="bg-surface border border-primary text-primary px-stack-md py-stack-sm flex items-center gap-unit font-label-caps text-label-caps hover:bg-primary-fixed transition-colors">
+<span class="material-symbols-outlined text-[18px]">mail</span> Email to Committee
+                </button>
+<button class="bg-surface border border-primary text-primary px-stack-md py-stack-sm flex items-center gap-unit font-label-caps text-label-caps hover:bg-primary-fixed transition-colors" onclick="window.print()">
+<span class="material-symbols-outlined text-[18px]">print</span> Print
+                </button>
+<button class="bg-primary text-on-primary px-stack-md py-stack-sm flex items-center gap-unit font-label-caps text-label-caps hover:opacity-90">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span> Download PDF
+                </button>
+</div>
+</div>
+<!-- Report Canvas -->
+<div class="w-full max-w-5xl bg-surface-container-lowest border border-outline-variant shadow-sm print-container p-12 mb-stack-lg rounded-sm">
+<!-- Report Header -->
+<div class="border-b-2 border-primary-container pb-stack-md mb-stack-lg flex justify-between items-start">
+<div>
+<h2 class="font-h2 text-h2 text-primary uppercase">Executive Summary of Evaluation</h2>
+<p class="font-data-mono text-data-mono text-on-surface-variant">REF: FED-PROC-2024-AUG-081 | GENERATED BY UNNATI AI</p>
+</div>
+<img alt="Official Seal" class="h-16 w-auto" data-alt="A minimalist, high-contrast abstract graphic representing a government seal or logo. The design uses National Security Blue and crisp white lines with a professional, symmetrical geometric shape. It feels authoritative, institutional, and modern, fitting for a federal procurement document header." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgyPqm9n61uhxnwAkYaJKiXpkCZndiU2XXDE_JHW9AqZ2fH68ybktinlX2KNrHkEkbyeQ6Dwi57zrWfXEqFG5XWCkFISqtB6rdUzEvtxtdkfyYdI-1n327IBjsw0gBYITD9BwdZeW9usPOsZSLr1-hMeAhEGcfPZEVVFhaQWinjo2_5X6SxNeGmWbmh9Be21F23w8L1j_O6MZpvNFeuktc5edekVvAhvm-lo_C9VQo6J3ai4IO9EhCWekTArpoaP4gRLz-Bxamzoo"/>
+</div>
+<!-- Content Grid (Asymmetric) -->
+<div class="grid grid-cols-12 gap-gutter mb-stack-lg bg-surface-container-low/30 rounded-lg p-unit -m-unit">
+<div class="col-span-8 space-y-stack-md">
+<section class="bg-surface-container-lowest">
+<h4 class="font-label-caps text-label-caps text-on-primary-fixed-variant mb-unit">1. EVALUATION OBJECTIVE</h4>
+<p class="font-body-lg text-body-lg text-on-surface leading-relaxed">
+                            This report presents the final evaluation for the procurement of <strong>Advanced Cybersecurity Infrastructure</strong> for the Federal Procurement Division. The evaluation process utilized SmartTender AI algorithms to cross-reference bidder documentation against established compliance benchmarks.
+                        </p>
+</section>
+<section>
+<h4 class="font-label-caps text-label-caps text-on-primary-fixed-variant mb-unit">2. SUMMARY OF FINDINGS</h4>
+<p class="font-body-md text-body-md text-on-surface mb-stack-sm">
+                            Of the twelve (12) submissions received, three (3) bidders achieved a compliance score above 90%. The AI identified significant discrepancies in technical specifications for two primary vendors, which were subsequently manually reviewed by the oversight committee.
+                        </p>
+</section>
+</div>
+<div class="col-span-4 bg-surface-container-low p-stack-md border-l-4 border-primary">
+<h4 class="font-label-caps text-label-caps text-primary mb-stack-sm">AI SYSTEM HEALTH</h4>
+<ul class="space-y-stack-sm font-body-sm text-body-sm">
+<li class="flex justify-between"><span>Confidence Score:</span> <span class="font-bold">98.4%</span></li>
+<li class="flex justify-between"><span>Models Used:</span> <span class="font-bold">LLM-v4-Federal</span></li>
+<li class="flex justify-between"><span>Compliance Version:</span> <span class="font-bold">NIST-2024.1</span></li>
+<li class="flex justify-between"><span>Processing Time:</span> <span class="font-bold">12m 45s</span></li>
+</ul>
+</div>
+</div>
+<!-- Bidder Ranking Table -->
+<section class="mb-stack-lg bg-surface-container-lowest">
+<h4 class="font-label-caps text-label-caps text-on-primary-fixed-variant mb-stack-sm">3. BIDDER RANKING &amp; ELIGIBILITY</h4>
+<div class="border border-outline-variant">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high font-label-caps text-label-caps border-b border-outline-variant">
+<th class="p-stack-sm">Rank</th>
+<th class="p-stack-sm">Organization Name</th>
+<th class="p-stack-sm">Compliance Score</th>
+<th class="p-stack-sm">Eligibility Status</th>
+<th class="p-stack-sm text-right">Risk Rating</th>
+</tr>
+</thead>
+<tbody class="font-body-md">
+<tr class="border-b border-outline-variant bg-surface-container-lowest">
+<td class="p-stack-sm font-bold">01</td>
+<td class="p-stack-sm">Sentinel Systems Group</td>
+<td class="p-stack-sm">97.8%</td>
+<td class="p-stack-sm"><span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-sm text-[10px] uppercase font-bold border border-green-200">Eligible</span></td>
+<td class="p-stack-sm text-right text-green-700 font-bold">Low</td>
+</tr>
+<tr class="border-b border-outline-variant bg-surface-container-low">
+<td class="p-stack-sm font-bold">02</td>
+<td class="p-stack-sm">Nexus Defence Tech</td>
+<td class="p-stack-sm">94.2%</td>
+<td class="p-stack-sm"><span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-sm text-[10px] uppercase font-bold border border-green-200">Eligible</span></td>
+<td class="p-stack-sm text-right text-green-700 font-bold">Low</td>
+</tr>
+<tr class="border-b border-outline-variant bg-surface-container-lowest">
+<td class="p-stack-sm font-bold">03</td>
+<td class="p-stack-sm">Global Infra Corp</td>
+<td class="p-stack-sm">89.1%</td>
+<td class="p-stack-sm"><span class="bg-error-container text-on-error-container px-2 py-0.5 rounded-sm text-[10px] uppercase font-bold border border-error">Conditional</span></td>
+<td class="p-stack-sm text-right text-error font-bold">Moderate</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Detailed Audit Trail -->
+<section class="mb-stack-lg">
+<h4 class="font-label-caps text-label-caps text-on-primary-fixed-variant mb-stack-sm">4. DETAILED AUDIT TRAIL (DECISION LOG)</h4>
+<div class="space-y-stack-sm">
+<div class="bg-surface-container-low p-stack-sm flex gap-stack-md border-l-2 border-outline">
+<span class="font-data-mono text-data-mono text-outline shrink-0">14:22:10</span>
+<div class="font-body-sm">
+<span class="font-bold text-primary">AI VERDICT:</span> Manual cross-check required for 'SLA Terms' on Nexus Defence Tech. Discrepancy in uptime commitment (99.9% vs 99.99%).
+                        </div>
+</div>
+<div class="bg-surface-container-low p-stack-sm flex gap-stack-md border-l-2 border-primary">
+<span class="font-data-mono text-data-mono text-outline shrink-0">15:05:44</span>
+<div class="font-body-sm">
+<span class="font-bold text-primary-fixed-variant">MANUAL OVERRIDE:</span> Administrator 'J. Doe' verified Nexus SLA via Appendix G. Corrected status to 'Compliant'.
+                        </div>
+</div>
+<div class="bg-surface-container-low p-stack-sm flex gap-stack-md border-l-2 border-outline">
+<span class="font-data-mono text-data-mono text-outline shrink-0">16:12:01</span>
+<div class="font-body-sm">
+<span class="font-bold text-primary">AI VERDICT:</span> Technical scoring completed for all 12 bidders. Automatic ranking generated based on weighted criteria (60% Tech / 40% Price).
+                        </div>
+</div>
+</div>
+</section>
+<!-- Digital Signature Placeholder -->
+<div class="mt-stack-lg pt-stack-lg border-t-2 border-outline-variant flex justify-between">
+<div class="w-1/3">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-stack-md">CERTIFYING OFFICER</h4>
+<div class="h-16 border-b border-primary mb-unit flex items-center justify-center italic text-primary-fixed-variant font-serif opacity-40">
+                        Placeholder for Electronic Signature
+                    </div>
+<p class="font-body-md font-bold">Jane R. Administrator</p>
+<p class="font-body-sm text-on-surface-variant">Senior Procurement Lead</p>
+</div>
+<div class="w-1/3 text-right">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-stack-md">DATE OF CERTIFICATION</h4>
+<p class="font-h3 text-h3 text-primary">August 24, 2024</p>
+<p class="font-body-sm text-on-surface-variant">17:45 GMT+5:30</p>
+<div class="mt-stack-sm inline-flex items-center gap-unit text-[10px] bg-primary text-white px-2 py-0.5 font-bold uppercase">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+                        Blockchain Verified
+                    </div>
+</div>
+</div>
+</div>
+<!-- Footer Page Indicators -->
+<div class="w-full max-w-5xl flex justify-between items-center text-on-surface-variant font-body-sm no-print">
+<span>Page 1 of 12</span>
+<div class="flex gap-stack-md">
+<a class="hover:text-primary underline" href="#">Privacy Policy</a>
+<a class="hover:text-primary underline" href="#">Security Protocol</a>
+<a class="hover:text-primary underline" href="#">Terms of Service</a>
+</div>
+</div>
+</main>
+<!-- Contextual FAB -->
+<button class="fixed bottom-8 right-8 bg-primary text-on-primary w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform no-print">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">draw</span>
+</button>
+</body></html>

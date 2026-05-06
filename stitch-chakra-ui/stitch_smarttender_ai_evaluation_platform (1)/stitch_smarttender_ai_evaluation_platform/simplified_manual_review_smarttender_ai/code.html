@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Manual Review Queue | Unnati SmartTender AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Public+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Custom scrollbar for data-heavy sections */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #757681;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-container": "#520002",
+                      "on-secondary-fixed-variant": "#454747",
+                      "on-surface-variant": "#444650",
+                      "primary-fixed-dim": "#b2c5ff",
+                      "secondary-container": "#dcdddd",
+                      "background": "#fbf9f8",
+                      "on-tertiary": "#ffffff",
+                      "surface-container": "#f0eded",
+                      "on-secondary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed-dim": "#ffb4aa",
+                      "tertiary-fixed": "#ffdad5",
+                      "on-error-container": "#93000a",
+                      "outline-variant": "#c5c6d1",
+                      "secondary-fixed": "#e2e2e2",
+                      "primary-fixed": "#dae2ff",
+                      "surface": "#fbf9f8",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-fixed-variant": "#930009",
+                      "surface-tint": "#455c99",
+                      "on-secondary-container": "#5f6161",
+                      "outline": "#757681",
+                      "on-background": "#1b1c1c",
+                      "inverse-primary": "#b2c5ff",
+                      "primary-container": "#00205b",
+                      "on-tertiary-container": "#ff463c",
+                      "on-primary-fixed": "#001849",
+                      "on-tertiary-fixed": "#410002",
+                      "secondary-fixed-dim": "#c6c6c7",
+                      "surface-dim": "#dcd9d9",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary": "#2a0001",
+                      "surface-bright": "#fbf9f8",
+                      "error": "#ba1a1a",
+                      "surface-variant": "#e4e2e1",
+                      "inverse-on-surface": "#f3f0f0",
+                      "on-secondary-fixed": "#1a1c1c",
+                      "on-primary-fixed-variant": "#2d447f",
+                      "inverse-surface": "#303030",
+                      "primary": "#000d2f"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "stack-lg": "32px",
+                      "stack-md": "16px",
+                      "gutter": "16px",
+                      "stack-sm": "8px",
+                      "unit": "4px",
+                      "container-padding": "24px"
+              },
+              "fontFamily": {
+                      "data-mono": ["monospace"],
+                      "body-sm": ["Inter"],
+                      "h2": ["Public Sans"],
+                      "body-lg": ["Inter"],
+                      "h3": ["Public Sans"],
+                      "h1": ["Public Sans"],
+                      "label-caps": ["Inter"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "data-mono": ["13px", {"lineHeight": "1", "fontWeight": "500"}],
+                      "body-sm": ["12px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                      "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "h3": ["18px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                      "h1": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                      "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-stack-lg">
+<span class="font-h2 text-h2 font-bold text-primary">Unnati SmartTender AI</span>
+<nav class="hidden md:flex gap-6 items-center h-full">
+<a class="font-h3 text-h3 text-on-surface-variant hover:text-primary transition-colors" href="#">Upload</a>
+<a class="font-h3 text-h3 text-primary border-b-2 border-primary pb-1" href="#">Review</a>
+</nav>
+</div>
+<div class="flex items-center gap-stack-md">
+<div class="relative group">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-2 hover:bg-secondary-container rounded-lg">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-2 hover:bg-secondary-container rounded-lg">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline ml-2">
+<img alt="User Administrator Profile" class="w-full h-full object-cover" data-alt="A professional corporate headshot of a middle-aged man with short dark hair and a formal suit. He is looking confidently at the camera against a neutral, blurred office background. The lighting is soft and professional, emphasizing a crisp, high-end institutional aesthetic consistent with a federal agency atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgWCfi77pmiIUKXYAx0AorhxCBu1wo_FhzHPRe3K_KTO43dSWcexS0_Tjjli81qg8V87O6uShx9FVRhbxHSzPVLWQdj1liXXtTSjvczf6TkoZ5ieQuQfi-EWmJxbOGk5Y7KPsphqtykWSyQ1cWLZYMqEmE4MN3LWIKJ3zeh3JMzNls3NB8O28lQi76Q8EEG-1qVIdPOds6QFew1ZQTp_t41sqQgEitO-7GJzbCK6EcYU6N5NvjRn9kgQIhBI8cV5-lp9nIshsLGxY"/>
+</div>
+</div>
+</header>
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 flex flex-col py-stack-md bg-surface-container-low border-r border-outline-variant">
+<div class="px-gutter mb-6">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-10 h-10 bg-primary-container text-on-primary-container flex items-center justify-center rounded">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Tender-2024-081</p>
+<p class="font-body-md text-body-md font-bold text-primary">Federal Proc. Div</p>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto space-y-1">
+<a class="flex items-center gap-3 px-gutter py-3 bg-primary-container text-on-primary-container font-bold border-l-4 border-primary translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="fact_check">fact_check</span>
+<span class="font-body-md text-body-md">Compliance Matrix</span>
+</a>
+</div>
+<div class="px-gutter pt-4 border-t border-outline-variant space-y-1">
+<a class="flex items-center gap-3 py-2 text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="help_outline">help_outline</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<button class="w-full mt-4 bg-primary text-white py-2 font-bold text-body-md rounded shadow-sm hover:opacity-90 active:translate-y-0.5 transition-all">
+                Generate Report
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 h-[calc(100vh-64px)] overflow-hidden flex flex-col">
+<!-- Header Strip for Manual Review Context -->
+<div class="bg-surface-container-highest px-gutter py-3 flex items-center justify-between border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<h1 class="font-h3 text-h3 text-primary uppercase tracking-tight">Manual Review Queue</h1>
+<span class="h-4 w-px bg-outline-variant"></span>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">assignment</span>
+<span class="font-body-sm text-body-sm font-bold">TASK ID: MRT-9902-X</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-error-container text-on-error-container px-3 py-1 border border-error rounded">
+<span class="material-symbols-outlined text-[18px]">report_problem</span>
+<span class="font-label-caps text-label-caps">THRESHOLD AMBIGUITY: Confidence &lt; 80%</span>
+</div>
+</div>
+</div>
+<!-- Split Screen View Container -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Side: Evidence Panel -->
+<div class="w-1/2 flex flex-col border-r border-outline-variant bg-surface overflow-y-auto">
+<div class="p-gutter space-y-stack-md">
+<!-- AI Recommendation Note -->
+<div class="border-l-4 border-primary p-4 rounded-r">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" data-icon="psychology">psychology</span>
+<span class="font-label-caps text-label-caps text-primary">AI RECOMMENDATION</span>
+</div>
+<p class="text-on-surface font-body-md">
+                            The model identifies this section as <strong class="text-primary">Clause 4.2: Infrastructure Security Compliance</strong>. 
+                            However, the extracted text contains technical terminology that conflicts with the standard regulatory definitions in the current knowledge base.
+                        </p>
+<div class="mt-3 flex items-center gap-4">
+<div class="flex flex-col">
+<span class="text-on-surface-variant text-body-sm">Inferred Value:</span>
+<span class="font-data-mono text-data-mono font-bold text-primary">COMPLIANT</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface-variant text-body-sm">AI Certainty:</span>
+<span class="font-data-mono text-data-mono font-bold text-error">74.2%</span>
+</div>
+</div>
+</div>
+<!-- Extracted Text Chunks -->
+<div class="space-y-4">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-outline-variant pb-1">EXTRACTED EVIDENCE</h4>
+<div class="p-4 border border-outline-variant bg-white shadow-sm rounded">
+<div class="flex justify-between mb-2">
+<span class="font-body-sm text-body-sm text-primary font-bold">Snippet #1: Physical Safeguards</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">Page 14, Para 3</span>
+</div>
+<p class="text-on-surface font-body-md leading-relaxed italic bg-surface-container-low p-3 border-l-2 border-outline-variant">
+                                "...the vendor shall maintain a perimeter of at least 15 feet from public access points, utilizing Grade 3 biometric verification for all personnel entering the server room hub."
+                            </p>
+</div>
+<div class="p-4 border border-primary shadow-sm rounded relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-error text-white text-[10px] px-3 py-1 uppercase font-bold">CRITICAL CONFLICT</div>
+<div class="flex justify-between mb-2">
+<span class="font-body-sm text-body-sm text-primary font-bold">Snippet #2: Data Redundancy</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">Page 16, Clause 8</span>
+</div>
+<p class="text-on-surface font-body-md leading-relaxed italic bg-surface-container-low p-3 border-l-2 border-primary">
+                                "...off-site data mirroring will occur every 240 minutes, ensuring minimal data loss during failover scenarios."
+                            </p>
+<p class="mt-2 text-error font-body-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                Conflict: Federal standard mandates mirroring every 60 minutes.
+                            </p>
+</div>
+<div class="p-4 border border-outline-variant bg-white shadow-sm rounded">
+<div class="flex justify-between mb-2">
+<span class="font-body-sm text-body-sm text-primary font-bold">Snippet #3: Personnel Clearance</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">Page 22, Section A</span>
+</div>
+<p class="text-on-surface font-body-md leading-relaxed italic bg-surface-container-low p-3 border-l-2 border-outline-variant">
+                                "All staff assigned to project MRT-9902 shall possess a minimum Level 2 Secret clearance as verified by the Department of Defense."
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Document Preview -->
+<div class="w-1/2 flex flex-col bg-surface-dim overflow-hidden relative">
+<!-- PDF Preview Controls -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 bg-primary text-white px-4 py-2 rounded-lg shadow-lg">
+<button class="material-symbols-outlined hover:opacity-70">zoom_out</button>
+<span class="font-data-mono text-data-mono">100% | Page 16 of 42</span>
+<button class="material-symbols-outlined hover:opacity-70">zoom_in</button>
+<span class="w-px h-4 bg-white/30"></span>
+<button class="material-symbols-outlined hover:opacity-70">file_download</button>
+</div>
+<!-- Document Image -->
+<div class="flex-1 overflow-auto p-gutter flex justify-center items-start">
+<div class="relative w-[85%] bg-white shadow-xl min-h-[1200px] p-12 border border-outline-variant">
+<!-- Simulated Highlight Boxes for UI context -->
+<div class="absolute top-[280px] left-[10%] w-[80%] h-[120px] bg-primary/10 border-2 border-primary/40 pointer-events-none"></div>
+<div class="absolute top-[520px] left-[10%] w-[80%] h-[60px] bg-error/10 border-2 border-error/40 pointer-events-none"></div>
+<div class="space-y-6 opacity-40">
+<div class="h-8 w-1/2 bg-on-surface-variant/20 rounded"></div>
+<div class="space-y-2">
+<div class="h-4 w-full bg-on-surface-variant/10 rounded"></div>
+<div class="h-4 w-full bg-on-surface-variant/10 rounded"></div>
+<div class="h-4 w-3/4 bg-on-surface-variant/10 rounded"></div>
+</div>
+<div class="h-8 w-1/3 bg-on-surface-variant/20 rounded mt-12"></div>
+<div class="space-y-2">
+<div class="h-4 w-full bg-on-surface-variant/10 rounded"></div>
+<div class="h-4 w-full bg-on-surface-variant/10 rounded"></div>
+<div class="h-4 w-full bg-on-surface-variant/10 rounded"></div>
+<div class="h-4 w-5/6 bg-on-surface-variant/10 rounded"></div>
+</div>
+<!-- Focal Point Area (Snippet 2) -->
+<div class="h-10 w-full bg-white border border-dashed border-primary mt-8 flex items-center px-4 font-body-md text-primary font-bold">
+                                8. DATA REDUNDANCY &amp; FAILOVER PROTOCOLS
+                            </div>
+<div class="h-24 w-full bg-primary/5 rounded"></div>
+</div>
+<!-- Page Indicator Text -->
+<div class="absolute bottom-4 right-8 font-label-caps text-label-caps text-on-surface-variant">OFFICIAL PROCUREMENT DOCUMENT - T-081</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Verdict Panel (Bottom Sticky) -->
+<div class="bg-white border-t border-outline shadow-[0_-4px_12px_rgba(0,0,0,0.05)] p-gutter">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-end gap-stack-md">
+<!-- Comment Area -->
+<div class="flex-1 w-full">
+<label class="font-label-caps text-label-caps text-on-surface-variant mb-2 block uppercase">Adjudicator Comments &amp; Audit Trail Notes</label>
+<textarea class="w-full h-24 p-3 border border-outline-variant bg-surface-container-low rounded font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none" placeholder="Enter justification for the final verdict. Include references to federal guidelines if overruling AI recommendation..."></textarea>
+</div>
+<!-- Decision Buttons -->
+<div class="w-full md:w-auto flex flex-col gap-3">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase text-right">Verdict Selection</span>
+<div class="flex gap-2">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border border-outline text-on-surface-variant font-bold rounded hover:bg-secondary-container transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                            REQUEST INFO
+                        </button>
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border-2 border-error text-error font-bold rounded hover:bg-error hover:text-white transition-all">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+                            FAIL
+                        </button>
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 border-2 border-primary text-primary font-bold rounded hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined" data-icon="check">check</span>
+                            PASS
+                        </button>
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-bold rounded shadow-lg hover:opacity-90 active:scale-[0.98] transition-all ring-4 ring-primary/20">
+                            SUBMIT VERDICT
+                        </button>
+</div>
+<p class="text-[10px] text-on-surface-variant italic text-right">Verdict will trigger Workflow 4: Compliance Validation Update.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB Suppression Rule Applied (Not rendered for Details/Review screen) -->
+</body></html>

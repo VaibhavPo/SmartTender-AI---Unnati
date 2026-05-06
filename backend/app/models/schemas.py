@@ -17,8 +17,8 @@ Design decisions:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Optional, Union
+from pydantic import BaseModel, Field, field_validator
 
 
 # ╔══════════════════════════════════════════════════════════════════╗
@@ -106,11 +106,16 @@ class CriterionType(str, Enum):
     DATE:    extracted_date > reference_date  (e.g., "GST registration valid beyond submission")
     BOOLEAN: simple yes/no existence check  (e.g., "ISO 9001 certificate attached")
     TEXT:    free-form — always goes to LLM for verdict  (e.g., "relevant experience description")
+    TECHNICAL/FINANCIAL/COMPLIANCE/CERTIFICATION: domain-specific categories for LLM evaluation.
     """
     NUMERIC = "numeric"
     DATE = "date"
     BOOLEAN = "boolean"
     TEXT = "text"
+    TECHNICAL = "technical"
+    FINANCIAL = "financial"
+    COMPLIANCE = "compliance"
+    CERTIFICATION = "certification"
 
 
 class CriterionSchema(BaseModel):
@@ -126,10 +131,10 @@ class CriterionSchema(BaseModel):
         ...,
         description="Determines which rule-layer check applies in the verdict engine"
     )
-    threshold_value: Optional[str] = Field(
+    threshold_value: Optional[Union[str, int, float]] = Field(
         None,
-        description="The benchmark value from the tender. String because it could be a number, "
-                    "date, or 'required'. E.g., '50000000' for 5 crore, '2025-12-31' for a date. "
+        description="The benchmark value from the tender. String, number, or "
+                    "date. E.g., 50000000 for 5 crore, '2025-12-31' for a date. "
                     "Workflow 4 parses this based on criterion_type."
     )
     unit: Optional[str] = Field(
@@ -137,6 +142,14 @@ class CriterionSchema(BaseModel):
         description="Unit for numeric criteria: 'INR', 'years', 'count', etc. "
                     "Helps the LLM avoid unit confusion (lakhs vs crores is a real bug)."
     )
+
+    @field_validator("threshold_value", mode="before")
+    @classmethod
+    def coerce_threshold_to_string(cls, v):
+        """Coerce int/float to string so asyncpg doesn't complain about VARCHAR column."""
+        if v is None:
+            return None
+        return str(v)
     is_mandatory: bool = Field(
         default=True,
         description="If True, failing this criterion disqualifies the bidder entirely. "

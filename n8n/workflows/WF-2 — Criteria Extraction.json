@@ -275,7 +275,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n  });\n}\n\n// Maps Mistral's semantic criterion types → FastAPI's allowed enum values\nfunction mapCriterionType(llmType) {\n  const map = {\n    'financial':     'numeric',\n    'numeric':       'numeric',\n    'technical':     'text',\n    'compliance':    'text',\n    'certification': 'boolean',\n    'boolean':       'boolean',\n    'date':          'date',\n    'text':          'text',\n  };\n  return map[(llmType || '').toLowerCase()] || 'text';\n}\n\nconst input = $input.first().json;\nconst criteria = input.criteria || [];\nconst tender_id = input.tender_id;\nconst document_id = input.document_id;\n\nconst result = criteria.map((c, i) => ({\n  id: uuidv4(),\n  tender_id,\n  name: c.name,\n  description: c.description,\n  criterion_type: mapCriterionType(c.type),          // ✅ always numeric|date|boolean|text\n  threshold_value: c.threshold_value != null ? String(c.threshold_value) : null,\n  unit: c.threshold_unit ?? null,\n  is_mandatory: c.mandatory ?? false,\n  section_reference: c.source_section ?? null,\n  order_index: i,\n\n  _meta: {\n    document_id,\n    criterion_id: c.criterion_id,\n    llm_type: c.type,                                // ← keep original for audit\n    source_text: c.source_text,\n    confidence: c.confidence,\n    requires_human_review: (c.mandatory === null) || ((c.confidence ?? 1) < 0.80),\n    extracted_by: 'mistral-7b-instruct-q4',\n    extracted_at: new Date().toISOString(),\n  }\n}));\n\nreturn [{ json: {\n  tender_id,\n  criteria: result,\n  _audit: { document_id, total: result.length }\n}}];"
+        "jsCode": "function uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n  });\n}\n\nconst input = $input.first().json;\nconst criteria = input.criteria || [];\nconst tender_id = input.tender_id;\nconst document_id = input.document_id;\n\nconst result = criteria.map((c, i) => ({\n  id: uuidv4(),\n  tender_id,\n  name: c.name,\n  description: c.description,\n  criterion_type: c.criterion_type,                  // ✅ semantic value: numeric|date|boolean|text\n  threshold_value: c.threshold_value != null ? String(c.threshold_value) : null,\n  unit: c.unit ?? null,\n  is_mandatory: c.is_mandatory ?? false,\n  section_reference: c.section_reference ?? null,\n  order_index: i,\n\n  _meta: {\n    document_id,\n    extracted_by: 'mistral-7b-instruct-q4',\n    extracted_at: new Date().toISOString(),\n  }\n}));\n\nreturn [{ json: {\n  tender_id,\n  criteria: result,\n  _audit: { document_id, total: result.length }\n}}];"
       },
       "id": "e1030a39-2450-4786-a2f5-bdae31cfccde",
       "name": "Assign UUIDs & Metadata",
@@ -285,7 +285,7 @@
         240,
         144
       ],
-      "notes": "Adds UUID per criterion, order_index for stable sorting, status:pending_review so officer must confirm before WF-3 starts, and requires_human_review flag for ambiguous mandatory fields."
+      "notes": "Adds UUID per criterion and order_index for stable sorting. Uses semantic criterion types directly (numeric|date|boolean|text) without translation."
     },
     {
       "parameters": {

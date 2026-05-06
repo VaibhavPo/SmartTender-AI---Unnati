@@ -34,6 +34,9 @@ Payload from FastAPI:
 - **Type**: HTTP Request
 - **Method**: POST
 - **URL**: `http://docling:8001/extract`
+- **Query Parameters** (optional):
+  - `tender_id={{$json.tender_id}}` — Required to update bidder name
+  - `bidder_id={{$json.bidder_id}}` — When provided with tender_id, will auto-update bidder name with extracted company name
 - **Body Type**: Form-Data / Multipart
 - **Send Binary Data**: Download the file from backend first, then send as multipart
   
@@ -46,6 +49,7 @@ Payload from FastAPI:
 
 ### Node 3b: Send to Docling (Image)
 - Same as 3a — Docling handles both images and PDFs
+- When `bidder_id` is provided, Docling will extract company name and update the bidder record automatically
 
 ### Node 4: Check Confidence (IF)
 - **Type**: IF

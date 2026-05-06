@@ -188,7 +188,27 @@ async def get_tender_evaluation_data(tender_id: str, db: AsyncSession = Depends(
     criteria_result = await db.execute(select(CriterionDB).where(CriterionDB.tender_id == tender_id))
     criteria = criteria_result.scalars().all()
 
-    verdicts_result = await db.execute(select(VerdictDB).where(VerdictDB.tender_id == tender_id))
+    # Only get LATEST version of each verdict
+    subq = (
+        select(
+            VerdictDB.criterion_id,
+            VerdictDB.bidder_id,
+            func.max(VerdictDB.version).label("max_version"),
+        )
+        .where(VerdictDB.tender_id == tender_id)
+        .group_by(VerdictDB.criterion_id, VerdictDB.bidder_id)
+        .subquery()
+    )
+    verdicts_result = await db.execute(
+        select(VerdictDB)
+        .join(
+            subq,
+            (VerdictDB.criterion_id == subq.c.criterion_id)
+            & (VerdictDB.bidder_id == subq.c.bidder_id)
+            & (VerdictDB.version == subq.c.max_version),
+        )
+        .where(VerdictDB.tender_id == tender_id)
+    )
     verdicts = verdicts_result.scalars().all()
 
     evidence_result = await db.execute(select(EvidenceDB).where(EvidenceDB.tender_id == tender_id))
@@ -264,3 +284,49 @@ async def get_tender_evaluation_data(tender_id: str, db: AsyncSession = Depends(
             for e in evidence
         ],
     }
+
+
+# ── PATCH /tenders/{tender_id}/bidders/{bidder_id} — Update bidder name ──
+@router.patch("/{tender_id}/bidders/{bidder_id}", response_model=BidderResponse)
+async def update_bidder(
+    tender_id: str,
+    bidder_id: str,
+    body: BidderCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    PATCH /api/v1/tenders/{tender_id}/bidders/{bidder_id} — Update bidder name.
+    Called by: Docling (extract company name from document), React (edit bidder).
+    
+    This allows the docling service or n8n to extract company names from
+    documents and update the bidder record with the actual company name.
+    """
+    # Verify tender exists
+    tender_result = await db.execute(select(TenderDB).where(TenderDB.id == tender_id))
+    if not tender_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Tender not found")
+    
+    # Fetch and update bidder
+    result = await db.execute(
+        select(BidderDB).where(
+            (BidderDB.id == bidder_id) & (BidderDB.tender_id == tender_id)
+        )
+    )
+    bidder = result.scalar_one_or_none()
+    if not bidder:
+        raise HTTPException(status_code=404, detail="Bidder not found")
+    
+    # Update fields
+    bidder.name = body.name
+    if body.registration_number is not None:
+        bidder.registration_number = body.registration_number
+    
+    await db.flush()
+    
+    return BidderResponse(
+        id=bidder.id,
+        tender_id=bidder.tender_id,
+        name=bidder.name,
+        registration_number=bidder.registration_number,
+        created_at=bidder.created_at.isoformat(),
+    )

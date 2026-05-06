@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-tertiary-fixed-variant": "#38485d",
+                "on-surface": "#dde2f8",
+                "on-surface-variant": "#c3c5d8",
+                "background": "#0d1322",
+                "primary-fixed-dim": "#b6c4ff",
+                "secondary-fixed-dim": "#b2c5ff",
+                "secondary-container": "#2f4682",
+                "tertiary-fixed": "#d3e4fe",
+                "surface-variant": "#2f3445",
+                "surface-container-lowest": "#080e1d",
+                "secondary": "#b2c5ff",
+                "outline": "#8d90a1",
+                "on-tertiary-container": "#fcfbff",
+                "on-error-container": "#ffdad6",
+                "tertiary-fixed-dim": "#b7c8e1",
+                "on-primary-fixed": "#00164f",
+                "surface-container": "#191f2f",
+                "primary-fixed": "#dce1ff",
+                "primary": "#b6c4ff",
+                "on-secondary-fixed": "#001849",
+                "error-container": "#93000a",
+                "tertiary-container": "#65758c",
+                "surface-container-low": "#151b2b",
+                "on-primary-container": "#fdfaff",
+                "inverse-surface": "#dde2f8",
+                "surface": "#0d1322",
+                "secondary-fixed": "#dae2ff",
+                "on-error": "#690005",
+                "on-tertiary": "#213145",
+                "on-primary-fixed-variant": "#003ab1",
+                "tertiary": "#b7c8e1",
+                "inverse-primary": "#004fe6",
+                "error": "#ffb4ab",
+                "surface-bright": "#33394a",
+                "surface-container-highest": "#2f3445",
+                "on-tertiary-fixed": "#0b1c30",
+                "on-secondary-fixed-variant": "#2d447f",
+                "surface-tint": "#b6c4ff",
+                "on-primary": "#00277e",
+                "surface-dim": "#0d1322",
+                "surface-container-high": "#242a3a",
+                "on-background": "#dde2f8",
+                "primary-container": "#2e66ff",
+                "inverse-on-surface": "#2a3040",
+                "outline-variant": "#434655",
+                "on-secondary-container": "#a0b7fa",
+                "on-secondary": "#122d67"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "xs": "4px",
+                "sm": "8px",
+                "margin": "32px",
+                "xl": "48px",
+                "container-max": "1440px",
+                "lg": "24px",
+                "md": "16px",
+                "gutter": "24px",
+                "base": "4px"
+        },
+        "fontFamily": {
+                "headline-xl": ["Public Sans"],
+                "headline-md": ["Public Sans"],
+                "headline-lg": ["Public Sans"],
+                "body-sm": ["Public Sans"],
+                "body-lg": ["Public Sans"],
+                "label-sm": ["Inter"],
+                "body-md": ["Public Sans"],
+                "label-md": ["Inter"]
+        },
+        "fontSize": {
+                "headline-xl": ["40px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                "headline-lg": ["32px", {"lineHeight": "1.25", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500"}]
+        }
+      },
+    },
+  }
+</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #434655; border-radius: 4px; }
+        .data-mono { font-family: monospace; font-size: 13px; font-weight: 500; }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-lg h-16 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-headline-md font-bold text-primary">Unnati SmartTender AI</span>
+<div class="hidden md:flex ml-10 space-x-6 h-full items-center">
+<a class="font-headline-md text-lg text-on-surface-variant hover:text-primary transition-colors" href="#">Upload</a>
+<a class="font-headline-md text-lg text-on-surface-variant hover:text-primary transition-colors" href="#">Review</a>
+<a class="font-headline-md text-lg text-primary border-b-2 border-primary pb-1" href="#">Dashboard</a>
+<a class="font-headline-md text-lg text-on-surface-variant hover:text-primary transition-colors" href="#">Reports</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-surface-container-high rounded transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-surface-container-high rounded transition-colors">settings</button>
+<img alt="User Administrator Profile" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A professional headshot of a government administrator in a sharp navy blue suit against a clean, light grey studio background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzAlDrZgSTh9NTsdpn8RA_aDqFt1qcBoFRTEPrsHxtjrSsbcmN0Q7VUZOeTT8CVhJciev3TZ_R7qabxz8pVia3Lcwc2r63Keqm-PXX8ql0EC1h3ES7DMTEOfF9_bdd_dVTfrTPP3j1X8GEPeDCbte4XF4uyU--2DNRji-mQE10t5_a0jGXCnvhbjG-g_L7GR4ZwZ0gou3-M6dtcEiqSpbl5VuuhUjKNRFUW9HXlEEdTiDxPTzXUn3lYGl25LOAQORu_hELp8nNuOk"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 flex flex-col py-md bg-surface-container-low border-r border-outline-variant">
+<div class="px-lg mb-6">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider">Tender-2024-081</h4>
+<p class="text-body-sm text-secondary">Federal Procurement Div</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-lg py-3 bg-secondary-container text-on-secondary-container font-bold border-l-4 border-primary transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-lg py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md">Compliance Matrix</span>
+</a>
+<a class="flex items-center gap-3 px-lg py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">folder_open</span>
+<span class="font-body-md">Bidder Documents</span>
+</a>
+<details class="group">
+<summary class="flex items-center justify-between px-lg py-3 text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer list-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-body-md">Analytics</span>
+</div>
+<span class="material-symbols-outlined text-[18px] group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="pl-12 space-y-1 mt-1">
+<a class="block py-2 text-body-sm text-secondary hover:text-primary" href="#">AI Insights</a>
+<a class="block py-2 text-body-sm text-secondary hover:text-primary" href="#">Audit Logs</a>
+</div>
+</details>
+</nav>
+<div class="px-lg pt-md border-t border-outline-variant mt-auto">
+<a class="flex items-center gap-3 py-2 text-on-surface-variant hover:text-primary" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="font-body-md">Support</span>
+</a>
+<button class="w-full mt-4 bg-primary text-on-primary py-2 font-body-md rounded shadow-sm hover:opacity-90 transition-opacity">
+                Generate Report
+            </button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 mt-16 p-lg">
+<div class="max-w-[1400px] mx-auto">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-lg">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary mb-1">Evaluation Overview</h1>
+<p class="text-on-surface-variant font-body-lg">Monitoring Workflow 3.4: Automated Evidence Validation</p>
+</div>
+<div class="flex gap-sm">
+<button class="bg-surface-container-high border border-outline px-4 py-2 flex items-center gap-2 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+<span class="font-body-md">Filters</span>
+</button>
+<button class="bg-surface-container-high border border-outline px-4 py-2 flex items-center gap-2 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">terminal</span>
+<span class="font-body-md">View AI Logs</span>
+</button>
+</div>
+</div>
+<!-- Dashboard Bento Grid -->
+<div class="grid grid-cols-12 gap-gutter mb-lg">
+<!-- Hero: Compliance Summary Ring -->
+<div class="col-span-12 lg:col-span-5 bg-surface-container-low border border-outline-variant p-lg flex flex-col items-center justify-center text-center shadow-sm rounded-xl">
+<h2 class="font-label-sm text-on-surface-variant mb-10 self-start uppercase tracking-widest">Overall Compliance Score</h2>
+<div class="relative w-64 h-64 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle cx="128" cy="128" fill="transparent" r="116" stroke="#2F3445" stroke-width="16"></circle>
+<circle cx="128" cy="128" fill="transparent" r="116" stroke="#b6c4ff" stroke-dasharray="728.84" stroke-dashoffset="182.21" stroke-linecap="round" stroke-width="16"></circle>
+</svg>
+<div class="absolute flex flex-col items-center">
+<span class="text-[48px] font-bold text-primary leading-tight">75/100</span>
+<span class="font-label-sm text-secondary uppercase">Aggregate Pass Rate</span>
+</div>
+</div>
+<div class="mt-12 grid grid-cols-3 gap-12 w-full border-t border-outline-variant pt-8">
+<div>
+<p class="font-headline-md text-primary">08</p>
+<p class="text-body-sm text-secondary">Total Bidders</p>
+</div>
+<div>
+<p class="font-headline-md text-error">02</p>
+<p class="text-body-sm text-secondary">Critical Fails</p>
+</div>
+<div>
+<p class="font-headline-md text-on-surface">03</p>
+<p class="text-body-sm text-secondary">Pending Review</p>
+</div>
+</div>
+</div>
+<!-- Hero: Bidder Status Cards Grid -->
+<div class="col-span-12 lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Card: Failed -->
+<div class="bg-surface-container-low border-2 border-error p-md relative shadow-sm rounded-xl">
+<div class="absolute top-2 right-2 bg-error text-on-error px-2 py-0.5 font-label-sm rounded-sm">FAILED</div>
+<div class="flex items-start gap-3 mb-4">
+<div class="w-12 h-12 bg-surface-container-high flex items-center justify-center border border-outline-variant rounded">
+<span class="material-symbols-outlined text-primary">business</span>
+</div>
+<div>
+<h3 class="font-headline-md text-lg">Infraserve Corp</h3>
+<p class="text-body-sm text-secondary">ID: BID-449-01</p>
+</div>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between items-center bg-error-container/20 p-2 border border-error/30 rounded">
+<span class="text-body-sm font-bold text-error">Critical Failure</span>
+<span class="data-mono text-error">Clause 4.2.1</span>
+</div>
+<p class="text-body-sm text-on-surface-variant italic">"ISO 27001 Certification document found to be expired (Oct 2023)."</p>
+</div>
+<button class="w-full border border-primary text-primary py-2 font-bold hover:bg-primary hover:text-on-primary transition-all rounded">Review Evidence</button>
+</div>
+<!-- Card: Pending -->
+<div class="bg-surface-container-low border border-outline-variant p-md relative shadow-sm rounded-xl">
+<div class="absolute top-2 right-2 bg-tertiary-container text-on-tertiary-container px-2 py-0.5 font-label-sm rounded-sm">PENDING</div>
+<div class="flex items-start gap-3 mb-4">
+<div class="w-12 h-12 bg-surface-container-high flex items-center justify-center border border-outline-variant rounded">
+<span class="material-symbols-outlined text-primary">business</span>
+</div>
+<div>
+<h3 class="font-headline-md text-lg">Global Tech Sol</h3>
+<p class="text-body-sm text-secondary">ID: BID-449-02</p>
+</div>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between items-center bg-surface-container-highest p-2 border border-outline-variant rounded">
+<span class="text-body-sm font-bold text-on-surface">Ambiguous Evidence</span>
+<span class="data-mono text-on-surface">Clause 7.1.0</span>
+</div>
+<p class="text-body-sm text-on-surface-variant italic">"AI could not verify notary seal. Manual verification required."</p>
+</div>
+<button class="w-full border border-primary text-primary py-2 font-bold hover:bg-primary hover:text-on-primary transition-all rounded">Assist AI Agent</button>
+</div>
+<!-- Card: Passed -->
+<div class="bg-surface-container-low border border-outline-variant p-md relative shadow-sm opacity-80 hover:opacity-100 transition-opacity rounded-xl">
+<div class="absolute top-2 right-2 bg-secondary-container text-on-secondary-container px-2 py-0.5 font-label-sm rounded-sm">PASSED</div>
+<div class="flex items-start gap-3 mb-4">
+<div class="w-12 h-12 bg-surface-container-high flex items-center justify-center border border-outline-variant rounded">
+<span class="material-symbols-outlined text-primary">business</span>
+</div>
+<div>
+<h3 class="font-headline-md text-lg">Apex Systems</h3>
+<p class="text-body-sm text-secondary">ID: BID-449-03</p>
+</div>
+</div>
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-body-sm text-secondary">All 14 compliance checks successfully verified.</span>
+</div>
+<button class="w-full border border-outline-variant text-on-surface-variant py-2 font-bold hover:bg-surface-container-high transition-all rounded">View Log</button>
+</div>
+<!-- Card: Passed -->
+<div class="bg-surface-container-low border border-outline-variant p-md relative shadow-sm opacity-80 hover:opacity-100 transition-opacity rounded-xl">
+<div class="absolute top-2 right-2 bg-secondary-container text-on-secondary-container px-2 py-0.5 font-label-sm rounded-sm">PASSED</div>
+<div class="flex items-start gap-3 mb-4">
+<div class="w-12 h-12 bg-surface-container-high flex items-center justify-center border border-outline-variant rounded">
+<span class="material-symbols-outlined text-primary">business</span>
+</div>
+<div>
+<h3 class="font-headline-md text-lg">Lumina Ltd</h3>
+<p class="text-body-sm text-secondary">ID: BID-449-04</p>
+</div>
+</div>
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-body-sm text-secondary">Validated against Federal Annex-B requirements.</span>
+</div>
+<button class="w-full border border-outline-variant text-on-surface-variant py-2 font-bold hover:bg-surface-container-high transition-all rounded">View Log</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Advice -->
+<div class="fixed bottom-lg right-lg bg-surface-container-highest text-on-surface p-4 border border-outline w-80 shadow-2xl rounded-xl z-50">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">info</span>
+<span class="font-label-sm uppercase tracking-wider">System Status</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">
+            Manual intervention required for <span class="text-primary font-bold">3 high-value clauses</span>. Resolve these to enable final reporting.
+        </p>
+<div class="mt-4 flex justify-end gap-2">
+<button class="text-on-surface-variant font-label-sm px-2 py-1 hover:text-on-surface transition-colors">DISMISS</button>
+<button class="bg-primary text-on-primary px-3 py-1 font-label-sm rounded shadow hover:opacity-90">RESOLVE NOW</button>
+</div>
+</div>
+</body></html>

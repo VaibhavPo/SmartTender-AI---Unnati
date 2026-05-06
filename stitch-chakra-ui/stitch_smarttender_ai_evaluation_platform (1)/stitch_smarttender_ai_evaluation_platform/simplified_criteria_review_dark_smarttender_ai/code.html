@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Criteria Review - Unnati SmartTender AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Public+Sans:wght@600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        /* Custom state for row expansion simulation */
+        .criterion-row:hover .expand-icon {
+            opacity: 1;
+        }
+        .criterion-detail {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .criterion-row.active .criterion-detail {
+            max-height: 100px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "on-surface": "#dde2f8",
+                        "on-surface-variant": "#c3c5d8",
+                        "background": "#0d1322",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "secondary-container": "#2f4682",
+                        "tertiary-fixed": "#d3e4fe",
+                        "surface-variant": "#2f3445",
+                        "surface-container-lowest": "#080e1d",
+                        "secondary": "#b2c5ff",
+                        "outline": "#8d90a1",
+                        "on-tertiary-container": "#fcfbff",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "on-primary-fixed": "#00164f",
+                        "surface-container": "#191f2f",
+                        "primary-fixed": "#dce1ff",
+                        "primary": "#b6c4ff",
+                        "on-secondary-fixed": "#001849",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#65758c",
+                        "surface-container-low": "#151b2b",
+                        "on-primary-container": "#fdfaff",
+                        "inverse-surface": "#dde2f8",
+                        "surface": "#0d1322",
+                        "secondary-fixed": "#dae2ff",
+                        "on-error": "#690005",
+                        "on-tertiary": "#213145",
+                        "on-primary-fixed-variant": "#003ab1",
+                        "tertiary": "#b7c8e1",
+                        "inverse-primary": "#004fe6",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#33394a",
+                        "surface-container-highest": "#2f3445",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "on-secondary-fixed-variant": "#2d447f",
+                        "surface-tint": "#b6c4ff",
+                        "on-primary": "#00277e",
+                        "surface-dim": "#0d1322",
+                        "surface-container-high": "#242a3a",
+                        "on-background": "#dde2f8",
+                        "primary-container": "#2e66ff",
+                        "inverse-on-surface": "#2a3040",
+                        "outline-variant": "#434655",
+                        "on-secondary-container": "#a0b7fa",
+                        "on-secondary": "#122d67"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "sm": "8px",
+                        "margin": "32px",
+                        "xl": "48px",
+                        "container-max": "1440px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "gutter": "24px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "headline-lg": ["Public Sans"],
+                        "body-sm": ["Public Sans"],
+                        "body-lg": ["Public Sans"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Public Sans"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["40px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.25", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16 bg-surface-container border-b border-outline-variant">
+<div class="flex items-center gap-lg">
+<span class="font-headline-md text-headline-md font-bold text-primary">Unnati SmartTender AI</span>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-base text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-base text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container overflow-hidden border border-outline">
+<img alt="User Administrator Profile" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLUYEcjGNTqYzPAXNfMVOzZUp2w_sJ1o98FFhVZYHNtiERz5W2Eg0A0Toz-PCqWt4rzaTwwZ31CD1TM1AKlJ1whXLdri5As1iI5m9n_IeqQSmyWtL--miSEH_wHiC1wLnEPUXkEvnwhT88oZ5chM4uvFXYPOQNcgM6yi89uwMH9ubW54okbbu0gRfbQQW9Li8fTrEivT-BALIHFGnt56h5C8hLUoccV6FOmPM4Vy53tKilql_icTr_cr7iRWzmFmSK0PoQ2bBhw54"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 flex flex-col py-md bg-surface-container-low border-r border-outline-variant">
+<div class="px-gutter mb-lg">
+<div class="flex items-center gap-sm mb-base">
+<div class="h-6 w-6 bg-primary-container flex items-center justify-center rounded">
+<span class="material-symbols-outlined text-white text-[16px]" data-icon="description">description</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">TENDER-2024-081</span>
+</div>
+<div class="font-body-md text-body-md text-primary font-bold">Federal Procurement Div</div>
+</div>
+<nav class="flex-1">
+<ul class="space-y-base">
+<li>
+<a class="flex items-center gap-sm px-gutter py-sm text-on-surface-variant hover:bg-surface-container-highest transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span class="font-body-md">Bidder Documents</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-gutter py-sm bg-secondary-container text-on-secondary-container font-bold border-l-4 border-primary transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="fact_check">fact_check</span>
+<span class="font-body-md">Compliance Matrix</span>
+</a>
+</li>
+</ul>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-lg">
+<!-- Header Section -->
+<div class="mb-lg border-b border-outline-variant pb-md">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<nav class="flex items-center gap-xs text-on-surface-variant mb-xs">
+<span class="font-label-sm text-primary uppercase">Criteria Review</span>
+</nav>
+<h1 class="font-headline-lg text-headline-lg text-primary">Extracted Evaluation Criteria</h1>
+</div>
+<div class="flex gap-md">
+<button class="px-lg py-sm bg-primary text-on-primary font-bold rounded flex items-center gap-xs shadow-md hover:scale-[1.02] transition-all ring-4 ring-primary/10">
+                        Confirm &amp; Start Evaluation
+                        <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Metadata Context Bar -->
+<div class="flex flex-wrap items-center gap-gutter bg-surface-container p-sm rounded border border-outline-variant text-body-sm">
+<div class="flex items-center gap-xs">
+<span class="font-label-sm text-outline uppercase">TENDER:</span>
+<span class="font-bold text-on-surface">Advanced Cloud Infrastructure...</span>
+<span class="font-mono text-[12px] bg-surface-container-highest px-xs rounded border border-outline-variant text-on-surface-variant">FED-PROC-2024-081</span>
+</div>
+<div class="w-px h-4 bg-outline-variant"></div>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px] text-error" data-icon="event">event</span>
+<span class="text-error font-bold">Sept 12, 2024</span>
+</div>
+<div class="w-px h-4 bg-outline-variant"></div>
+<div class="flex items-center gap-md flex-1">
+<div class="flex items-center gap-xs min-w-[140px]">
+<span class="font-label-sm text-outline uppercase">AI HEALTH:</span>
+<span class="font-bold text-primary">94%</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded overflow-hidden">
+<div class="h-full bg-primary" style="width: 94%"></div>
+</div>
+</div>
+<span class="text-outline text-[12px] italic">12 of 13 criteria mapped</span>
+</div>
+</div>
+</div>
+<!-- Main Criteria Table -->
+<div class="bg-surface-container border border-outline-variant rounded overflow-hidden">
+<table class="w-full border-collapse">
+<thead>
+<tr class="bg-surface-container-high border-b border-outline-variant">
+<th class="w-12"></th>
+<th class="text-left py-sm px-md font-label-md text-label-md text-on-surface-variant w-24">ID</th>
+<th class="text-left py-sm px-md font-label-md text-label-md text-on-surface-variant">CRITERION</th>
+<th class="text-left py-sm px-md font-label-md text-label-md text-on-surface-variant">TYPE</th>
+<th class="text-left py-sm px-md font-label-md text-label-md text-on-surface-variant">THRESHOLD</th>
+<th class="text-left py-sm px-md font-label-md text-label-md text-on-surface-variant">CONFIDENCE</th>
+<th class="text-right py-sm px-md font-label-md text-label-md text-on-surface-variant">ACTIONS</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="criterion-row group cursor-pointer hover:bg-surface-container-highest transition-colors">
+<td class="text-center text-outline group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="expand_more">expand_more</span>
+</td>
+<td class="py-md px-md font-mono text-label-sm text-outline">CRT-01</td>
+<td class="py-md px-md">
+<div class="font-body-md font-bold text-on-surface">Annual Revenue Requirement</div>
+<div class="criterion-detail font-body-sm text-on-surface-variant mt-1 opacity-70">Minimum annual turnover for the last 3 fiscal years.</div>
+</td>
+<td class="py-md px-md">
+<span class="px-sm py-xs bg-primary-container text-on-primary-container font-label-sm rounded uppercase text-[10px]">NUMERIC</span>
+</td>
+<td class="py-md px-md font-body-md text-on-surface">$15,000,000.00</td>
+<td class="py-md px-md">
+<div class="flex items-center gap-xs text-tertiary">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-body-sm font-bold">98%</span>
+</div>
+</td>
+<td class="py-md px-md text-right">
+<button class="text-primary hover:underline font-body-md font-bold">Edit</button>
+</td>
+</tr>
+<!-- Row 2 - Active State -->
+<tr class="criterion-row active group cursor-pointer bg-surface-container-low border-l-4 border-primary">
+<td class="text-center text-primary">
+<span class="material-symbols-outlined text-[20px] rotate-180" data-icon="expand_more">expand_more</span>
+</td>
+<td class="py-md px-md font-mono text-label-sm text-outline">CRT-02</td>
+<td class="py-md px-md">
+<div class="font-body-md font-bold text-on-surface">ISO 27001 Certification</div>
+<div class="criterion-detail font-body-sm text-on-surface-variant mt-2 max-h-20 opacity-100">
+                                Current and valid information security management certification. Must be issued by an accredited body and include all annexes relevant to cloud hosting services.
+                            </div>
+</td>
+<td class="py-md px-md">
+<span class="px-sm py-xs bg-surface-container-highest text-on-surface-variant font-label-sm rounded uppercase text-[10px]">PRESENCE</span>
+</td>
+<td class="py-md px-md font-body-md text-on-surface">Mandatory</td>
+<td class="py-md px-md">
+<div class="flex items-center gap-xs text-tertiary">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-body-sm font-bold">95%</span>
+</div>
+</td>
+<td class="py-md px-md text-right">
+<button class="text-primary hover:underline font-body-md font-bold">Edit</button>
+</td>
+</tr>
+<!-- Row 3 - Alert State -->
+<tr class="criterion-row group cursor-pointer hover:bg-surface-container-highest transition-colors border-l-4 border-error">
+<td class="text-center text-outline group-hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="expand_more">expand_more</span>
+</td>
+<td class="py-md px-md font-mono text-label-sm text-outline">CRT-03</td>
+<td class="py-md px-md">
+<div class="font-body-md font-bold text-on-surface">Federal Project Experience</div>
+<div class="criterion-detail font-body-sm text-on-surface-variant mt-1 opacity-70">Evidence of completing at least 3 federal migrations.</div>
+</td>
+<td class="py-md px-md">
+<span class="px-sm py-xs bg-primary-container text-on-primary-container font-label-sm rounded uppercase text-[10px]">NUMERIC</span>
+</td>
+<td class="py-md px-md font-body-md text-on-surface">3 Projects</td>
+<td class="py-md px-md">
+<div class="flex items-center gap-xs text-error">
+<span class="material-symbols-outlined text-[16px]" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="font-body-sm font-bold">62%</span>
+</div>
+</td>
+<td class="py-md px-md text-right">
+<button class="bg-error text-on-error font-bold px-sm py-xs rounded font-body-sm hover:opacity-90 shadow-sm uppercase text-[11px]">Review</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="criterion-row group cursor-pointer hover:bg-surface-container-highest transition-colors">
+<td class="text-center text-outline group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="expand_more">expand_more</span>
+</td>
+<td class="py-md px-md font-mono text-label-sm text-outline">CRT-04</td>
+<td class="py-md px-md">
+<div class="font-body-md font-bold text-on-surface">On-site Support Presence</div>
+<div class="criterion-detail font-body-sm text-on-surface-variant mt-1 opacity-70">Ability to provide 24/7 on-site support in DC metro area.</div>
+</td>
+<td class="py-md px-md">
+<span class="px-sm py-xs bg-tertiary-container text-on-tertiary-container font-label-sm rounded uppercase text-[10px]">BOOLEAN</span>
+</td>
+<td class="py-md px-md font-body-md text-on-surface">Yes / No</td>
+<td class="py-md px-md">
+<div class="flex items-center gap-xs text-tertiary">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-body-sm font-bold">99%</span>
+</div>
+</td>
+<td class="py-md px-md text-right">
+<button class="text-primary hover:underline font-body-md font-bold">Edit</button>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination -->
+<div class="p-md bg-surface-container flex justify-between items-center border-t border-outline-variant">
+<div class="font-body-sm text-on-surface-variant">Showing 4 of 13 identified criteria</div>
+<div class="flex gap-sm">
+<button class="p-xs border border-outline-variant rounded hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-[20px]" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="px-sm py-xs bg-primary text-on-primary font-bold rounded">1</button>
+<button class="px-sm py-xs hover:bg-surface-container-highest rounded text-on-surface">2</button>
+<button class="px-sm py-xs hover:bg-surface-container-highest rounded text-on-surface">3</button>
+<button class="p-xs border border-outline-variant rounded hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-[20px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Tip Section -->
+<div class="mt-lg border border-primary/20 bg-primary/5 p-md rounded flex items-start gap-md">
+<span class="material-symbols-outlined text-primary text-[24px]" data-icon="info">info</span>
+<div>
+<h3 class="font-body-md font-bold text-primary">Automated Validation Guide</h3>
+<p class="font-body-sm text-on-surface-variant">
+                    Fields marked <span class="text-primary font-bold">NUMERIC</span> or <span class="text-primary font-bold">BOOLEAN</span> will be compared automatically with bidder data. 
+                    <a class="text-primary underline font-bold ml-1" href="#">View Full Tutorial</a>
+</p>
+</div>
+</div>
+</main>
+<!-- Chat FAB -->
+<button class="fixed bottom-gutter right-gutter h-14 w-14 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform z-50">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+</button>
+</body></html>
