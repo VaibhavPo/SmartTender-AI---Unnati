@@ -1,14 +1,7 @@
 /**
- * Report Page
- * ============
+ * Report Page — Stitch Design
+ * =============================
  * Screen 5: Generate final evaluation report and download PDF.
- *
- * Key components: ReportPreview, DownloadButton
- * API calls:
- *   - GET /tenders (select tender)
- *   - POST /reports/generate (trigger report)
- *   - GET /reports/{id}/download (download PDF)
- *   - GET /verdicts?tender_id=X (summary data for preview)
  */
 
 import { useState, useEffect } from "react";
@@ -23,6 +16,7 @@ export default function ReportPage() {
   const [criteria, setCriteria] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [downloadReady, setDownloadReady] = useState(false);
+  const [includeAuditTrail, setIncludeAuditTrail] = useState(true);
 
   useEffect(() => {
     tenderApi.list().then(({ data }) => setTenders(Array.isArray(data) ? data : [])).catch(() => setTenders([]));
@@ -46,8 +40,10 @@ export default function ReportPage() {
     if (!activeTender) return;
     setGenerating(true);
     try {
-      await reportApi.generate({ tender_id: activeTender.id });
-      // Poll for completion (report generation takes time)
+      await reportApi.generate({
+        tender_id: activeTender.id,
+        include_audit_trail: includeAuditTrail,
+      });
       setTimeout(() => {
         setDownloadReady(true);
         setGenerating(false);
@@ -75,7 +71,6 @@ export default function ReportPage() {
     }
   };
 
-  // Summary calculations
   const getBidderSummary = (bidderId) => {
     const bv = verdicts.filter((v) => v.bidder_id === bidderId);
     return {
@@ -87,20 +82,27 @@ export default function ReportPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Evaluation Report</h2>
-          <p className="text-gray-400 mt-1">
-            Generate and download the final evaluation report.
-          </p>
-        </div>
-        <div className="flex gap-3">
+    <div className="space-y-6 animate-fade-in">
+      {/* Report controls */}
+      <div className="stitch-card">
+        <h3 className="section-heading mb-4">Final Report</h3>
+
+        <label className="flex items-center gap-2 text-sm text-surface-700 mb-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={includeAuditTrail}
+            onChange={(e) => setIncludeAuditTrail(e.target.checked)}
+            className="w-4 h-4 text-brand-500 border-surface-400 rounded focus:ring-brand-400"
+          />
+          Include audit trail
+        </label>
+
+        <div className="flex gap-3 justify-end items-center flex-wrap">
           <button
             id="generate-report-btn"
             onClick={handleGenerate}
             disabled={generating || !activeTender}
-            className="btn-primary"
+            className="btn-primary disabled:opacity-50"
           >
             {generating ? (
               <span className="flex items-center gap-2">
@@ -108,70 +110,71 @@ export default function ReportPage() {
                 Generating...
               </span>
             ) : (
-              "📊 Generate Report"
+              "Generate"
             )}
           </button>
           {downloadReady && (
             <button
               id="download-report-btn"
               onClick={handleDownload}
-              className="px-6 py-2.5 bg-accent-500 text-white font-semibold rounded-xl
-                         hover:bg-accent-400 transition-all shadow-lg shadow-accent-500/25"
+              className="btn-secondary"
             >
-              ⬇️ Download PDF
+              Download PDF
             </button>
           )}
         </div>
       </div>
 
       {/* Tender selector */}
-      <div className="flex gap-2 flex-wrap">
-        {tenders.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => {
-              setActiveTender(t);
-              setDownloadReady(false);
-            }}
-            className={`px-4 py-2 rounded-xl text-sm transition-all ${
-              activeTender?.id === t.id
-                ? "bg-primary-600/20 text-primary-400 border border-primary-500/20"
-                : "text-gray-400 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
+      {tenders.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {tenders.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => {
+                setActiveTender(t);
+                setDownloadReady(false);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                activeTender?.id === t.id
+                  ? "bg-brand-400/[0.12] text-brand-500 border-brand-400/30 font-extrabold"
+                  : "text-surface-600 bg-surface-200/50 border-transparent hover:bg-surface-200"
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Report preview */}
       {activeTender && bidders.length > 0 ? (
-        <div className="glass-card p-8 space-y-6">
-          <div className="border-b border-white/10 pb-4">
-            <h3 className="text-xl font-bold text-white">{activeTender.name}</h3>
+        <div className="stitch-card space-y-6">
+          <div className="border-b border-black/[0.08] pb-4">
+            <h3 className="font-heading font-black text-lg text-surface-800">{activeTender.name}</h3>
             {activeTender.reference_number && (
-              <p className="text-sm text-gray-400">Ref: {activeTender.reference_number}</p>
+              <p className="text-sm text-surface-500">Ref: {activeTender.reference_number}</p>
             )}
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-surface-500 mt-1">
               {bidders.length} bidders · {criteria.length} criteria · {verdicts.length} verdicts
             </p>
           </div>
 
           {/* Ranking table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="text-left text-gray-400 border-b border-white/10">
-                  <th className="pb-3 font-medium">Rank</th>
-                  <th className="pb-3 font-medium">Bidder</th>
-                  <th className="pb-3 font-medium text-center">Pass</th>
-                  <th className="pb-3 font-medium text-center">Fail</th>
-                  <th className="pb-3 font-medium text-center">Review</th>
-                  <th className="pb-3 font-medium text-center">Score</th>
-                  <th className="pb-3 font-medium text-center">Status</th>
+                <tr>
+                  <th>Rank</th>
+                  <th>Bidder</th>
+                  <th className="text-center">Pass</th>
+                  <th className="text-center">Fail</th>
+                  <th className="text-center">Review</th>
+                  <th className="text-center">Score</th>
+                  <th className="text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody>
                 {bidders
                   .map((b) => ({ ...b, summary: getBidderSummary(b.id) }))
                   .sort((a, b) => b.summary.pass - a.summary.pass)
@@ -182,16 +185,16 @@ export default function ReportPage() {
                     const qualified = fail === 0 && review === 0 && pending === 0;
 
                     return (
-                      <tr key={bidder.id} className="hover:bg-white/5 transition-colors">
-                        <td className="py-3 font-mono text-gray-500">#{idx + 1}</td>
-                        <td className="py-3 text-white font-medium">{bidder.name}</td>
-                        <td className="py-3 text-center text-accent-400 font-semibold">{pass}</td>
-                        <td className="py-3 text-center text-danger-400 font-semibold">{fail}</td>
-                        <td className="py-3 text-center text-warning-400 font-semibold">{review}</td>
-                        <td className="py-3 text-center">
-                          <span className="gradient-text font-bold">{score}%</span>
+                      <tr key={bidder.id}>
+                        <td className="font-mono text-surface-500">#{idx + 1}</td>
+                        <td className="text-surface-800 font-bold">{bidder.name}</td>
+                        <td className="text-center text-accent-600 font-bold">{pass}</td>
+                        <td className="text-center text-danger-600 font-bold">{fail}</td>
+                        <td className="text-center text-warning-600 font-bold">{review}</td>
+                        <td className="text-center">
+                          <span className="font-heading font-black text-brand-500">{score}%</span>
                         </td>
-                        <td className="py-3 text-center">
+                        <td className="text-center">
                           {pending > 0 ? (
                             <span className="badge-review">Pending</span>
                           ) : qualified ? (
@@ -208,8 +211,8 @@ export default function ReportPage() {
           </div>
         </div>
       ) : (
-        <div className="glass-card p-12 text-center">
-          <p className="text-gray-500 text-lg">
+        <div className="stitch-card py-12 text-center">
+          <p className="text-surface-500 text-base">
             {activeTender
               ? "No evaluation data yet. Run the evaluation first."
               : "Select a tender to preview the report."}

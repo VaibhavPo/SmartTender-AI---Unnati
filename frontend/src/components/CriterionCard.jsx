@@ -1,6 +1,6 @@
 /**
- * CriterionCard Component
- * ========================
+ * CriterionCard Component — Stitch Design
+ * ==========================================
  * Editable card for a single evaluation criterion.
  * Officer can modify name, description, type, threshold, etc.
  */
@@ -29,69 +29,86 @@ export default function CriterionCard({ criterion, index, onUpdate, onDelete }) 
   };
 
   return (
-    <div className="glass-card p-5 animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
+    <div className="stitch-card animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
       {editing ? (
         /* ── Edit Mode ── */
         <div className="space-y-3">
-          <input
-            type="text"
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            className="input-field font-semibold"
-            placeholder="Criterion Name"
-          />
-          <textarea
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            className="input-field h-24 resize-none text-sm"
-            placeholder="Full description from tender document"
-          />
-          <div className="grid grid-cols-3 gap-3">
-            <select
-              value={draft.criterion_type}
-              onChange={(e) => setDraft({ ...draft, criterion_type: e.target.value })}
-              className="input-field text-sm"
-            >
-              {CRITERION_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+          <div>
+            <label className="label-caps block mb-1.5">Criterion Name</label>
             <input
               type="text"
-              value={draft.threshold_value || ""}
-              onChange={(e) => setDraft({ ...draft, threshold_value: e.target.value })}
-              className="input-field text-sm"
-              placeholder="Threshold"
-            />
-            <input
-              type="text"
-              value={draft.unit || ""}
-              onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-              className="input-field text-sm"
-              placeholder="Unit (INR, years…)"
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              className="input-field font-semibold"
+              placeholder="Criterion Name"
             />
           </div>
+          <div>
+            <label className="label-caps block mb-1.5">Description</label>
+            <textarea
+              value={draft.description}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              className="input-field h-24 resize-none text-sm"
+              placeholder="Full description from tender document"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="label-caps block mb-1.5">Type</label>
+              <select
+                value={draft.criterion_type}
+                onChange={(e) => setDraft({ ...draft, criterion_type: e.target.value })}
+                className="select-field"
+              >
+                {CRITERION_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-caps block mb-1.5">Threshold</label>
+              <input
+                type="text"
+                value={draft.threshold_value || ""}
+                onChange={(e) => setDraft({ ...draft, threshold_value: e.target.value })}
+                className="input-field"
+                placeholder="Threshold"
+              />
+            </div>
+            <div>
+              <label className="label-caps block mb-1.5">Unit</label>
+              <input
+                type="text"
+                value={draft.unit || ""}
+                onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+                className="input-field"
+                placeholder="INR, years…"
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-300">
+            <label className="flex items-center gap-2 text-sm text-surface-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={draft.is_mandatory}
                 onChange={(e) => setDraft({ ...draft, is_mandatory: e.target.checked })}
-                className="rounded border-white/20"
+                className="w-4 h-4 text-brand-500 border-surface-400 rounded focus:ring-brand-400"
               />
               Mandatory
             </label>
-            <input
-              type="text"
-              value={draft.section_reference || ""}
-              onChange={(e) => setDraft({ ...draft, section_reference: e.target.value })}
-              className="input-field text-sm flex-1"
-              placeholder="Section reference (e.g., Section 4.2.1, Page 12)"
-            />
+            <div className="flex-1">
+              <input
+                type="text"
+                value={draft.section_reference || ""}
+                onChange={(e) => setDraft({ ...draft, section_reference: e.target.value })}
+                className="input-field"
+                placeholder="Section reference (e.g., Section 4.2.1, Page 12)"
+              />
+            </div>
           </div>
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end pt-2">
             <button onClick={handleCancel} className="btn-ghost text-sm">
               Cancel
             </button>
@@ -103,20 +120,20 @@ export default function CriterionCard({ criterion, index, onUpdate, onDelete }) 
       ) : (
         /* ── View Mode ── */
         <div className="flex items-start gap-4">
-          <span className="text-lg font-mono text-gray-600 mt-0.5">{index + 1}</span>
+          <span className="text-sm font-mono text-surface-400 mt-0.5 font-bold">{index + 1}</span>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h4 className="text-white font-semibold">{criterion.name}</h4>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="font-heading font-black text-sm text-surface-800">{criterion.name}</h4>
               {criterion.is_mandatory && <span className="badge-fail">Mandatory</span>}
-              <span className="text-xs text-gray-500 px-2 py-0.5 bg-white/5 rounded-full">
+              <span className="badge-pending">
                 {criterion.criterion_type}
               </span>
             </div>
-            <p className="text-sm text-gray-400 mt-1 line-clamp-2">{criterion.description}</p>
-            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+            <p className="text-sm text-surface-500 mt-1 line-clamp-2">{criterion.description}</p>
+            <div className="flex items-center gap-4 mt-2 text-xs text-surface-500">
               {criterion.threshold_value && (
                 <span>
-                  Threshold: <span className="text-gray-300">{criterion.threshold_value}</span>
+                  Threshold: <span className="font-bold text-surface-700">{criterion.threshold_value}</span>
                   {criterion.unit && ` ${criterion.unit}`}
                 </span>
               )}
@@ -126,15 +143,15 @@ export default function CriterionCard({ criterion, index, onUpdate, onDelete }) 
           <div className="flex gap-2 shrink-0">
             <button
               onClick={() => setEditing(true)}
-              className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+              className="btn-tertiary text-xs"
             >
-              ✏️ Edit
+              Edit
             </button>
             <button
               onClick={() => onDelete(criterion.id)}
-              className="text-sm text-red-400 hover:text-red-300 transition-colors"
+              className="btn-tertiary text-xs text-danger-500 hover:text-danger-600"
             >
-              🗑️ Delete
+              Delete
             </button>
           </div>
         </div>

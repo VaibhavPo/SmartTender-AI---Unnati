@@ -1,21 +1,14 @@
 /**
- * Evaluation Dashboard Page
- * ==========================
- * Screen 3: Real-time view of evaluation progress. Shows per-bidder
- * verdict cards with pass/fail/review status.
- *
- * Key components: BidderScoreCard, VerdictBadge, ProgressBar
- * API calls:
- *   - GET /tenders (select tender)
- *   - GET /tenders/{id}/bidders (list bidders)
- *   - GET /criteria?tender_id=X (list criteria)
- *   - GET /verdicts?tender_id=X&bidder_id=Y (verdicts per bidder)
- *   - GET /evidence?tender_id=X&bidder_id=Y (evidence per bidder)
+ * Evaluation Dashboard Page — Stitch Design
+ * ============================================
+ * Screen 3: Real-time view of evaluation progress.
+ * Shows per-bidder verdict cards with pass/fail/review status.
  */
 
 import { useState, useEffect } from "react";
 import { tenderApi, criteriaApi, verdictApi, evidenceApi } from "../api/client";
 import VerdictBadge from "../components/VerdictBadge";
+import StatusBadge from "../components/StatusBadge";
 
 export default function EvaluationDashboardPage() {
   const [tenders, setTenders] = useState([]);
@@ -45,7 +38,6 @@ export default function EvaluationDashboardPage() {
       setBidders(biddersRes.data);
       setCriteria(criteriaRes.data);
 
-      // Load verdicts per bidder
       const verdictMap = {};
       for (const bidder of biddersRes.data) {
         const { data } = await verdictApi.list(tenderId, bidder.id);
@@ -59,7 +51,6 @@ export default function EvaluationDashboardPage() {
     }
   };
 
-  // Refresh data every 10s to catch n8n updates
   useEffect(() => {
     if (!activeTender) return;
     const interval = setInterval(() => loadEvaluationData(activeTender.id), 10000);
@@ -77,59 +68,64 @@ export default function EvaluationDashboardPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Evaluation Dashboard</h2>
-        <p className="text-gray-400 mt-1">
-          Live evaluation progress. Auto-refreshes every 10 seconds.
-        </p>
-      </div>
-
-      {/* Tender selector */}
-      <div className="flex gap-2 flex-wrap">
-        {tenders.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTender(t)}
-            className={`px-4 py-2 rounded-xl text-sm transition-all ${
-              activeTender?.id === t.id
-                ? "bg-primary-600/20 text-primary-400 border border-primary-500/20"
-                : "text-gray-400 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Tender selector chips */}
+      {tenders.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {tenders.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTender(t)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                activeTender?.id === t.id
+                  ? "bg-brand-400/[0.12] dark:bg-brand-400/[0.15] text-brand-500 dark:text-brand-300 border-brand-400/30 font-extrabold"
+                  : "text-surface-600 dark:text-gray-400 bg-surface-200/50 dark:bg-white/[0.06] border-transparent hover:bg-surface-200 dark:hover:bg-white/10"
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
-        <div className="glass-card p-12 text-center">
-          <div className="inline-block w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 mt-4">Loading evaluation data...</p>
+        <div className="stitch-card py-16 text-center">
+          <div className="inline-block w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-surface-500 dark:text-gray-500 mt-4 text-sm">Loading evaluation data...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-4">
           {bidders.map((bidder) => {
             const score = getScoreSummary(bidder.id);
             const verdicts = verdictsByBidder[bidder.id] || [];
             const passRate = score.total > 0 ? ((score.pass / score.total) * 100).toFixed(0) : 0;
 
             return (
-              <div key={bidder.id} className="glass-card p-6 space-y-4">
+              <div key={bidder.id} className="stitch-card space-y-4">
                 {/* Bidder header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">{bidder.name}</h3>
-                    <p className="text-xs text-gray-500 font-mono">{bidder.id.slice(0, 8)}</p>
+                    <h3 className="font-heading font-extrabold text-[15px] text-surface-800 dark:text-gray-100">{bidder.name}</h3>
+                    <p className="text-xs text-surface-500 dark:text-gray-500 mt-0.5">
+                      {score.pass} pass • {score.fail} fail • {score.review} manual • {score.pending} pending
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold gradient-text">{passRate}%</span>
-                    <p className="text-xs text-gray-500">pass rate</p>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge
+                      status={
+                        score.fail > 0 ? "FAIL" :
+                        score.review > 0 ? "MANUAL_REVIEW" :
+                        score.pending > 0 ? "pending" :
+                        (score.pass > 0 && score.pass === score.total) ? "PASS" :
+                        "pending"
+                      }
+                    />
+                    <span className="text-2xl font-heading font-extrabold text-brand-500 dark:text-brand-300">{passRate}%</span>
                   </div>
                 </div>
 
                 {/* Progress bar */}
-                <div className="flex h-2 rounded-full overflow-hidden bg-white/5">
+                <div className="flex h-1.5 rounded-full overflow-hidden bg-surface-300 dark:bg-white/10">
                   <div
                     className="bg-accent-500 transition-all duration-500"
                     style={{ width: `${(score.pass / Math.max(score.total, 1)) * 100}%` }}
@@ -144,41 +140,28 @@ export default function EvaluationDashboardPage() {
                   />
                 </div>
 
-                {/* Stats row */}
-                <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                  <div>
-                    <span className="text-accent-400 font-bold text-lg">{score.pass}</span>
-                    <p className="text-gray-500">Pass</p>
-                  </div>
-                  <div>
-                    <span className="text-danger-400 font-bold text-lg">{score.fail}</span>
-                    <p className="text-gray-500">Fail</p>
-                  </div>
-                  <div>
-                    <span className="text-warning-400 font-bold text-lg">{score.review}</span>
-                    <p className="text-gray-500">Review</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 font-bold text-lg">{score.pending}</span>
-                    <p className="text-gray-500">Pending</p>
-                  </div>
-                </div>
-
                 {/* Verdict list */}
-                <div className="space-y-2 max-h-60 overflow-y-auto">
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
                   {criteria.map((c) => {
                     const v = verdicts.find((verdict) => verdict.criterion_id === c.id);
                     return (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg text-sm"
+                        className="flex items-center justify-between px-3 py-2 bg-surface-200/50 dark:bg-white/[0.06] rounded-lg text-sm"
                       >
-                        <span className="text-gray-300 truncate flex-1">{c.name}</span>
-                        {v ? (
-                          <VerdictBadge verdict={v.verdict} />
-                        ) : (
-                          <span className="text-xs text-gray-600">Pending</span>
-                        )}
+                        <span className="text-surface-700 dark:text-gray-300 font-semibold truncate flex-1">{c.name}</span>
+                        <div className="flex items-center gap-2">
+                          {v ? (
+                            <>
+                              <VerdictBadge verdict={v.verdict} />
+                              <span className="text-[11px] text-surface-500 dark:text-gray-400 font-bold">
+                                {Math.round(v.confidence * 100)}%
+                              </span>
+                            </>
+                          ) : (
+                            <span className="badge-pending">Pending</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -188,8 +171,8 @@ export default function EvaluationDashboardPage() {
           })}
 
           {bidders.length === 0 && (
-            <div className="col-span-2 glass-card p-12 text-center">
-              <p className="text-gray-500 text-lg">
+            <div className="stitch-card py-12 text-center">
+              <p className="text-surface-500 text-base">
                 {activeTender
                   ? "No bidders registered. Go to Upload to add bidders."
                   : "Select a tender to view evaluation."}

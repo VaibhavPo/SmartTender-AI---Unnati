@@ -1,6 +1,6 @@
 /**
- * VerdictBadge Component
- * =======================
+ * VerdictBadge Component — Stitch Design
+ * ========================================
  * Renders a colored badge for each verdict status.
  */
 
@@ -13,11 +13,11 @@ const VERDICT_STYLES = {
 };
 
 const VERDICT_LABELS = {
-  PASS: "✅ Pass",
-  FAIL: "❌ Fail",
-  MANUAL_REVIEW: "⚠️ Review",
-  OFFICER_APPROVED: "👤 Approved",
-  OFFICER_REJECTED: "👤 Rejected",
+  PASS: "Pass",
+  FAIL: "Fail",
+  MANUAL_REVIEW: "Review",
+  OFFICER_APPROVED: "Approved",
+  OFFICER_REJECTED: "Rejected",
 };
 
 export default function VerdictBadge({ verdict }) {

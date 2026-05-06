@@ -1,6 +1,6 @@
 /**
- * FileUploader Component
- * =======================
+ * FileUploader Component — Stitch Design
+ * =========================================
  * Drag-and-drop + click-to-browse file uploader.
  * Supports assigning uploads to a specific bidder.
  */
@@ -37,7 +37,6 @@ export default function FileUploader({ bidders = [], onUpload }) {
   };
 
   const uploadFile = async (file) => {
-    // Validate file type
     const allowed = ["application/pdf", "image/png", "image/jpeg", "image/tiff"];
     if (!allowed.includes(file.type)) {
       setUploadStatus({ type: "error", message: "Only PDF or image files allowed." });
@@ -58,17 +57,17 @@ export default function FileUploader({ bidders = [], onUpload }) {
 
   return (
     <div className="space-y-4">
-      {/* Bidder selector */}
-      {bidders.length > 0 && (
-        <div>
-          <label className="text-xs text-gray-400 block mb-1">Assign to bidder (optional)</label>
+      {/* Bidder selector + file input row */}
+      <div className="flex gap-3 items-end flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <label className="label-caps block mb-1.5">Select bidder (optional)</label>
           <select
             id="bidder-select"
             value={selectedBidder}
             onChange={(e) => setSelectedBidder(e.target.value)}
-            className="input-field text-sm"
+            className="select-field"
           >
-            <option value="">Tender Document (no bidder)</option>
+            <option value="">General tender document</option>
             {bidders.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -76,7 +75,16 @@ export default function FileUploader({ bidders = [], onUpload }) {
             ))}
           </select>
         </div>
-      )}
+        <div className="flex-1 min-w-[200px]">
+          <label className="label-caps block mb-1.5">PDF / Image</label>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.tiff"
+            onChange={handleChange}
+            className="block w-full text-sm text-surface-600 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border file:border-brand-500 file:text-sm file:font-semibold file:bg-brand-500 file:text-white hover:file:bg-brand-600 file:cursor-pointer file:transition-all"
+          />
+        </div>
+      </div>
 
       {/* Drop zone */}
       <div
@@ -86,11 +94,11 @@ export default function FileUploader({ bidders = [], onUpload }) {
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer
+        className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                     transition-all duration-200 ${
                       dragActive
-                        ? "border-primary-500 bg-primary-500/10"
-                        : "border-white/10 hover:border-white/20 hover:bg-white/5"
+                        ? "border-brand-400 bg-brand-50"
+                        : "border-surface-400/60 hover:border-brand-400/40 hover:bg-surface-200/40"
                     } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
       >
         <input
@@ -100,20 +108,27 @@ export default function FileUploader({ bidders = [], onUpload }) {
           accept=".pdf,.png,.jpg,.jpeg,.tiff"
           className="hidden"
         />
-        <div className="text-4xl mb-3">{uploading ? "⏳" : "📎"}</div>
-        <p className="text-sm text-gray-300 font-medium">
-          {uploading ? "Uploading..." : "Drop file here or click to browse"}
+        {/* Upload icon */}
+        <div className="flex justify-center mb-3">
+          <svg className="w-10 h-10 text-surface-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+          </svg>
+        </div>
+        <p className="text-sm text-surface-700 font-semibold">
+          {uploading ? "Uploading..." : "Click or drag PDF here"}
         </p>
-        <p className="text-xs text-gray-500 mt-1">PDF, PNG, JPG, TIFF</p>
+        <p className="text-xs text-surface-500 mt-1">
+          AI Extraction in Progress
+        </p>
       </div>
 
       {/* Status message */}
       {uploadStatus && (
         <div
-          className={`px-4 py-2 rounded-xl text-sm animate-fade-in ${
+          className={`px-4 py-2.5 rounded-lg text-sm animate-fade-in border ${
             uploadStatus.type === "success"
-              ? "bg-accent-500/20 text-accent-400"
-              : "bg-danger-500/20 text-danger-400"
+              ? "bg-accent-50 text-accent-600 border-accent-500/20"
+              : "bg-danger-50 text-danger-600 border-danger-500/20"
           }`}
         >
           {uploadStatus.message}

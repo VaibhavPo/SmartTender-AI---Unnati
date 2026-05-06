@@ -1,16 +1,8 @@
 /**
- * Criteria Review Page
- * =====================
+ * Criteria Review Page — Stitch Design
+ * ======================================
  * Screen 2: Officer reviews AI-extracted criteria, edits them,
  * and confirms to start evaluation.
- *
- * Key components: CriterionCard (editable)
- * API calls:
- *   - GET /tenders (select tender)
- *   - POST /criteria/extract (trigger extraction)
- *   - GET /criteria?tender_id=X (list criteria)
- *   - PUT /criteria/{id} (edit criterion)
- *   - POST /criteria/confirm (start evaluation)
  */
 
 import { useState, useEffect } from "react";
@@ -40,7 +32,6 @@ export default function CriteriaReviewPage() {
 
   const handleExtract = async () => {
     if (!activeTender) return;
-    // Find the tender document (no bidder_id)
     const tenderDoc = documents.find((d) => !d.bidder_id && d.status === "completed");
     if (!tenderDoc) {
       alert("No processed tender document found. Upload and wait for ingestion first.");
@@ -49,7 +40,6 @@ export default function CriteriaReviewPage() {
     setExtracting(true);
     try {
       await criteriaApi.extract(activeTender.id, tenderDoc.id);
-      // Poll for results
       setTimeout(async () => {
         const { data } = await criteriaApi.list(activeTender.id);
         setCriteria(data);
@@ -111,62 +101,81 @@ export default function CriteriaReviewPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Criteria Review</h2>
-          <p className="text-gray-400 mt-1">
-            Review AI-extracted evaluation criteria. Edit before confirming.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            id="extract-criteria-btn"
-            onClick={handleExtract}
-            disabled={extracting || !activeTender}
-            className="btn-ghost"
-          >
-            {extracting ? "Extracting..." : "🔍 Extract Criteria"}
-          </button>
-          <button
-            id="start-evaluation-btn"
-            onClick={handleConfirm}
-            disabled={confirming || criteria.length === 0}
-            className="btn-primary"
-          >
-            {confirming ? "Starting..." : "✅ Start Evaluation"}
-          </button>
+    <div className="space-y-6 animate-fade-in">
+      {/* Tender selector + actions */}
+      <div className="stitch-card">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h3 className="section-heading">Extract criteria from document</h3>
+            <p className="text-sm text-surface-500 dark:text-gray-500 mt-1">
+              Review AI-extracted evaluation criteria. Edit before confirming.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              id="extract-criteria-btn"
+              onClick={handleExtract}
+              disabled={extracting || !activeTender}
+              className="btn-ghost disabled:opacity-50"
+            >
+              {extracting ? (
+                <span className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                  Extracting...
+                </span>
+              ) : (
+                "Extract Criteria"
+              )}
+            </button>
+            <button
+              id="start-evaluation-btn"
+              onClick={handleConfirm}
+              disabled={confirming || criteria.length === 0}
+              className="btn-primary disabled:opacity-50"
+            >
+              {confirming ? (
+                <span className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Starting...
+                </span>
+              ) : (
+                "Start Evaluation"
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tender selector */}
-      <div className="flex gap-2 flex-wrap">
-        {tenders.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTender(t)}
-            className={`px-4 py-2 rounded-xl text-sm transition-all ${
-              activeTender?.id === t.id
-                ? "bg-primary-600/20 text-primary-400 border border-primary-500/20"
-                : "text-gray-400 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
+      {/* Tender selector chips */}
+      {tenders.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {tenders.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTender(t)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                activeTender?.id === t.id
+                  ? "bg-brand-400/[0.12] dark:bg-brand-400/[0.15] text-brand-500 dark:text-brand-300 border-brand-400/30 font-extrabold"
+                  : "text-surface-600 dark:text-gray-400 bg-surface-200/50 dark:bg-white/[0.06] border-transparent hover:bg-surface-200 dark:hover:bg-white/10"
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Criteria list */}
       {criteria.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <p className="text-gray-500 text-lg">
+        <div className="stitch-card py-12 text-center">
+          <p className="text-surface-500 dark:text-gray-500 text-base">
             {activeTender
               ? "No criteria yet. Click 'Extract Criteria' to begin."
               : "Select a tender to view criteria."}
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {criteria.map((criterion, index) => (
             <CriterionCard
               key={criterion.id}

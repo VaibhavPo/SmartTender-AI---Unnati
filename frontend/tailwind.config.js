@@ -4,52 +4,69 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        // Primary palette — deep navy for government trust
-        primary: {
-          50:  '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#1e40af',
-          700: '#1e3a8a',
-          800: '#1e2d5f',
-          900: '#0f172a',
+        // Stitch Design — Navy brand
+        brand: {
+          50:  '#EEF2FF',
+          100: '#D6DFFF',
+          200: '#B6C4FF',
+          300: '#7B94FF',
+          400: '#2E66FF',
+          500: '#00205B',
+          600: '#001849',
+          700: '#001036',
+          800: '#0A0F24',
+          900: '#060912',
         },
-        // Accent — emerald for PASS verdicts
+        // Semantic colors
         accent: {
-          400: '#34d399',
-          500: '#10b981',
+          50:  '#ECFDF5',
+          100: '#D1FAE5',
+          400: '#34D399',
+          500: '#10B981',
           600: '#059669',
         },
-        // Danger — for FAIL verdicts
         danger: {
-          400: '#f87171',
-          500: '#ef4444',
-          600: '#dc2626',
+          50:  '#FEF2F2',
+          100: '#FEE2E2',
+          400: '#F87171',
+          500: '#EF4444',
+          600: '#DC2626',
         },
-        // Warning — for MANUAL_REVIEW
         warning: {
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
+          50:  '#FFFBEB',
+          100: '#FEF3C7',
+          400: '#FBBF24',
+          500: '#F59E0B',
+          600: '#D97706',
         },
-        // Surface colors for cards and backgrounds
+        // Surface colors — light mode
         surface: {
-          50:  '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          800: '#1e293b',
-          900: '#0f172a',
+          50:  '#FFFFFF',
+          100: '#FBF9F8',
+          200: '#F6F3F2',
+          300: '#ECEAE9',
+          400: '#D1CFCE',
+          500: '#757681',
+          600: '#4A4B57',
+          700: '#2D2E3A',
+          800: '#1B1C1C',
+          900: '#0D1322',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        heading: ["'Plus Jakarta Sans'", 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ["'DM Sans'", 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "'Liberation Mono'", "'Courier New'", 'monospace'],
+      },
+      borderRadius: {
+        'sm': '2px',
+        'md': '6px',
+        'lg': '8px',
+        'xl': '12px',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
@@ -70,4 +87,3 @@ export default {
   },
   plugins: [],
 }
-
