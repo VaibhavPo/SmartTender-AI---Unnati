@@ -298,26 +298,24 @@ export default function UploadPage() {
         </div>
 
         {/* Tender Selector + Create */}
-        {tenders.length > 1 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            {tenders.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTender(t)}
-                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all border ${
-                  activeTender?.id === t.id
-                    ? "bg-brand-400/[0.12] dark:bg-brand-400/[0.15] text-brand-500 dark:text-brand-300 border-brand-400/30"
-                    : "text-surface-500 dark:text-gray-500 bg-surface-200/50 dark:bg-white/[0.05] border-transparent hover:bg-surface-200 dark:hover:bg-white/10"
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
-            <button onClick={() => setShowCreateTender(!showCreateTender)} className="px-3 py-1.5 rounded-md text-[12px] font-semibold text-brand-500 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-400/10 transition-all flex items-center gap-1">
-              <Plus size={13} /> New Tender
+        <div className="flex items-center gap-2 flex-wrap">
+          {tenders.length > 1 && tenders.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTender(t)}
+              className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all border ${
+                activeTender?.id === t.id
+                  ? "bg-brand-400/[0.12] dark:bg-brand-400/[0.15] text-brand-500 dark:text-brand-300 border-brand-400/30"
+                  : "text-surface-500 dark:text-gray-500 bg-surface-200/50 dark:bg-white/[0.05] border-transparent hover:bg-surface-200 dark:hover:bg-white/10"
+              }`}
+            >
+              {t.name}
             </button>
-          </div>
-        )}
+          ))}
+          <button onClick={() => setShowCreateTender(!showCreateTender)} className="px-3 py-1.5 rounded-md text-[12px] font-semibold text-brand-500 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-400/10 transition-all flex items-center gap-1">
+            <Plus size={13} /> New Tender
+          </button>
+        </div>
 
         {/* Create tender mini-form (collapsible) */}
         {showCreateTender && (
