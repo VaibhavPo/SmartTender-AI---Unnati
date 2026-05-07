@@ -34,62 +34,94 @@ graph TD
 - **n8n** → All AI workflows. Calls LLMs, Docling, Qdrant via HTTP/OpenAI nodes.
 - **React** → Display only. Upload docs, review criteria, confirm verdicts.
 
----
+## 🚀 Quick Start
 
-## Quick Start
+### 1. Prerequisites
+- **Docker Desktop** with **Docker Model Runner** enabled.
+  (Settings → Features in development → Enable "Docker Model Runner")
+- **16 GB RAM** minimum recommended for the full experience.
+- **8 GB RAM** minimum for the "Low RAM" mode (Mistral + Nomic only).
 
-### Prerequisites
-- Docker Desktop with **Docker Model Runner** enabled
-  (Settings → Features in development → Docker Model Runner)
-- 16 GB RAM minimum (see Low RAM section below)
-
-### 1. Pull AI Models (run once)
+### 2. First-Time Setup (Pull AI Models)
+Run these commands once to download the required local AI models:
 ```bash
-# Main LLM — criteria, evidence, verdicts (~4.1 GB download)
+# Main LLM for reasoning and extraction (~4.1 GB)
 docker model pull ai/mistral-7b-instruct-q4
 
-# Embeddings for vector search (~275 MB download)
+# Embeddings for vector search (~275 MB)
 docker model pull ai/nomic-embed-text
 
-# Vision model for scanned documents (~4.5 GB download)
+# Vision model for OCR fallback (~4.5 GB) - Optional for <16GB RAM
 docker model pull ai/llava-7b
 ```
 
-**Total download: ~8.9 GB. Runtime RAM for all three: ~10-12 GB.**
-
-### 2. Start Services
+### 3. Launch the Platform
 ```bash
 cp .env.example .env    # Review and adjust if needed
-docker compose up -d    # Start all services
+docker compose up -d    # Start all services (PostgreSQL, Redis, Qdrant, n8n, FastAPI, React)
 ```
 
-### 3. Verify
-```bash
-# Check all services are healthy
-curl http://localhost:8000/health
+### 4. Post-Setup: Configure n8n Credentials
+1. Open **n8n** at [http://localhost:5678](http://localhost:5678).
+2. Login with `admin` / `smarttender_n8n`.
+3. Go to **Settings → Credentials → Add → OpenAI API**.
+   - **API Key**: `any-string` (Docker Model Runner doesn't need one, but n8n requires it).
+   - **Base URL**: `http://model-runner.docker.internal/engines/llama.cpp/v1`
+4. Save the credential. The workflows are automatically imported and activated.
 
-# Access UIs
-# FastAPI docs: http://localhost:8000/docs
-# n8n workflows: http://localhost:5678 (admin / smarttender_n8n)
-# React frontend: http://localhost:5173 (in dev) or build with Docker
-```
+---
 
-### ⚠️ Low RAM Workaround (< 16 GB)
+## 🧪 Reviewer's Test Guide (The "Happy Path")
+
+Use the sample documents in the [`TestingDocument/`](file:///d:/Code/SmartTender%20AI%20-%20Unnati/TestingDocument) folder to test the full pipeline.
+
+### Step 1: Ingestion Portal
+1. Open the **Frontend** at [http://localhost:5173](http://localhost:5173).
+2. Click **"New Tender"** and enter a name (e.g., "SmartTender Demo").
+3. **Upload Tender Notice**: Upload `Unnati_Tender_Document.pdf`. Wait for the "Ingested" status.
+4. **Register Bidders**: Add three bidders:
+   - "Strong Bidder"
+   - "Weak Bidder"
+   - "Borderline Bidder"
+5. **Upload Bidder Docs**: Upload the corresponding files from `TestingDocument/` (`Strong_PASS.pdf`, `Weak_FAIL.pdf`, `Borderline_REVIEW.pdf`) to each bidder.
+
+### Step 2: Criteria Extraction
+1. Once all documents are "Ingested," click **"Extract Criteria"**.
+2. Wait ~20-30 seconds. The AI (Mistral-7B) will analyze the tender notice and extract mandatory technical criteria (e.g., "Annual Turnover," "ISO Certification").
+3. Review the criteria. You can edit them if needed. Click **"Confirm & Start Evaluation"**.
+
+### Step 3: Live Evaluation Dashboard
+1. You will be redirected to the **Evaluation Dashboard**.
+2. Watch the progress bars. n8n is now:
+   - Searching bidder docs for evidence.
+   - Grounding verdicts with page numbers and quotes.
+   - Running the logic engine.
+3. The "Strong Bidder" should quickly move to a high pass rate.
+
+### Step 4: Officer-in-the-Loop (Manual Review)
+1. Go to the **Manual Review** tab.
+2. Find the "Borderline Bidder." The AI might flag a criterion as `MANUAL_REVIEW` due to ambiguity.
+3. Click **"Review"**. See the AI's reasoning, check the linked page in the PDF, and make your decision.
+4. Provide a justification (e.g., "Experience verified via annexure") and click **"Approve"**.
+
+### Step 5: Final Audit Report
+1. Go to the **Report** tab once evaluation is 100% complete.
+2. Click **"Generate Final Report"**.
+3. Download the PDF. This report contains the executive summary, bidder rankings, and a **complete audit trail** of every AI verdict and human override.
+
+---
+
+## ⚠️ Low RAM Workaround (< 16 GB)
 
 If your machine has less than 16 GB RAM:
 
-1. **Skip llava-7b** — don't pull it. The system falls back to Docling-only OCR.
+1. **Skip llava-7b** — do not pull it. The system falls back to Docling-only OCR.
    Comment out `MODEL_VISION` in `.env`.
 2. **Run models sequentially** — Docker Model Runner loads models on-demand and
-   unloads idle ones. With <16 GB, only one model fits at a time. This means
-   workflows run slower (each model swap takes 5-10s) but it works.
-3. **Reduce PostgreSQL shared_buffers** — add to compose:
-   ```yaml
-   postgres:
-     command: postgres -c shared_buffers=128MB
-   ```
+   unloads idle ones. This slows down workflows but prevents OOM crashes.
+3. **Reduce PostgreSQL memory** — The `docker-compose.yml` is already tuned for moderate usage, but you can further reduce `shared_buffers` in the postgres command if needed.
 
-**Minimum viable RAM: 8 GB** (mistral + nomic only, no llava, models swap in/out).
+**Minimum viable RAM: 8 GB** (Mistral + Nomic only).
 
 ---
 
