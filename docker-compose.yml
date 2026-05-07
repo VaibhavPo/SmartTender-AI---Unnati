@@ -1,21 +1,30 @@
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  SmartTender AI — Docker Compose                                        ║
+# ║  SmartTender AI — Docker Compose (AWS Deployment)                         ║
 # ║                                                                         ║
-# ║  PREREQUISITE: Docker Model Runner                                       ║
-# ║  Before running `docker compose up`, you MUST:                           ║
-# ║  1. Open Docker Desktop → Settings → Features in development            ║
-# ║     → Enable "Docker Model Runner"                                       ║
-# ║  2. Pull the required models (run ONCE):                                 ║
+# ║  ARCHITECTURE:                                                           ║
+# ║  - PostgreSQL, Redis, Qdrant, Docling, FastAPI, React: EC2 instance     ║
+# ║  - Docker Model Runner: Native Docker daemon on EC2                      ║
+# ║  - n8n: Cloud-hosted (https://n8n.io/cloud)                              ║
+# ║                                                                         ║
+# ║  BEFORE FIRST RUN (EC2 setup):                                           ║
+# ║  1. SSH into EC2, install Docker & Docker Compose                        ║
+# ║  2. Pull AI models (runs once):                                          ║
 # ║       docker model pull ai/mistral-7b-instruct-q4   (~4.1 GB)           ║
 # ║       docker model pull ai/nomic-embed-text          (~275 MB)           ║
 # ║       docker model pull ai/llava-7b                  (~4.5 GB)           ║
-# ║  3. Minimum RAM: 16 GB to run all three simultaneously.                  ║
-# ║     If you have <16 GB, comment out MODEL_VISION in .env and skip       ║
-# ║     the llava pull — the system will fall back to Docling-only OCR.      ║
+# ║  3. Set environment variables in .env (see .env.example)                 ║
+# ║  4. Run: docker compose up -d                                            ║
 # ║                                                                         ║
-# ║  Docker Model Runner is NOT a compose service. It is a Docker Desktop   ║
-# ║  daemon feature accessible from any container at:                        ║
-# ║    http://model-runner.docker.internal/engines/llama.cpp/v1              ║
+# ║  CONFIGURE n8n Cloud:                                                    ║
+# ║  1. Create account at https://n8n.io/cloud                               ║
+# ║  2. Create workflows matching your local workflow IDs                    ║
+# ║  3. Set N8N_WEBHOOK_BASE_URL in .env to your cloud instance URL          ║
+# ║     Example: https://your-username.n8n.cloud/webhook                     ║
+# ║                                                                         ║
+# ║  MODEL RUNNER ON EC2:                                                    ║
+# ║  - Available at: http://localhost:11434/v1/models (local)                ║
+# ║  - From containers: http://host.docker.internal/v1/models                ║
+# ║  - MODEL_RUNNER_BASE_URL is accessible from all containers               ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 services:
@@ -40,7 +49,7 @@ services:
       retries: 10
 
   # ────────────────────────────────────────────
-  # Redis — caching, rate limiting, n8n queue
+  # Redis — caching, rate limiting
   # ────────────────────────────────────────────
   redis:
     image: redis:7-alpine
@@ -90,84 +99,14 @@ services:
       start_period: 30s  # Docling loads ML models on startup — give it time
 
   # ────────────────────────────────────────────
-  # n8n — AI workflow orchestrator
-  # All AI logic lives here. Calls Docker Model
-  # Runner, Docling, Qdrant, and FastAPI via HTTP.
-  # ────────────────────────────────────────────
-  n8n:
-    image: n8nio/n8n:1.73.1
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      # Persist workflows and credentials in the volume
-      N8N_USER_FOLDER: /home/node/.n8n
-
-      # Webhook URL — must be reachable from FastAPI container
-      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://n8n:5678}
-
-      # Auth for web UI
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-smarttender_n8n}
-
-      # Timezone
-      GENERIC_TIMEZONE: ${N8N_DEFAULT_TIMEZONE:-Asia/Kolkata}
-      TZ: ${N8N_DEFAULT_TIMEZONE:-Asia/Kolkata}
-
-      # Queue mode with Redis for better reliability
-      EXECUTIONS_MODE: queue
-      QUEUE_BULL_REDIS_HOST: redis
-      QUEUE_BULL_REDIS_PORT: 6379
-
-      # Allow calling internal Docker hostnames
-      N8N_RESTRICT_ENVIRONMENT_VARIABLES: "false"
-      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
-    volumes:
-      - n8ndata:/home/node/.n8n
-    depends_on:
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-
-  # ────────────────────────────────────────────
-  # n8n-import — One-time workflow importer
-  # ────────────────────────────────────────────
-  n8n-import:
-    image: n8nio/n8n:1.73.1
-    container_name: smarttenderai-unnati-n8n-import
-    volumes:
-      - n8ndata:/home/node/.n8n
-      - ./n8n/workflows:/workflows:ro
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        echo "Waiting for n8n to initialize..."
-        sleep 5
-        echo "Importing workflows from /workflows..."
-        n8n import:workflow --separate --input=/workflows
-        
-        echo "Activating workflows..."
-        # Extract IDs from list:workflow (filtering for lines containing the pipe separator)
-        n8n list:workflow | grep '|' | while read line; do
-          id=$$(echo $$line | cut -d'|' -f1)
-          echo "Activating workflow $$id..."
-          n8n update:workflow --id=$$id --active=true
-        done
-        echo "Workflows imported and activated successfully."
-    depends_on:
-      n8n:
-        condition: service_started
-
-  # ────────────────────────────────────────────
   # FastAPI Backend — thin API layer, no AI logic
   # ────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - .env
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -186,7 +125,7 @@ services:
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       REPORT_DIR: ${REPORT_DIR:-/app/reports}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      N8N_WEBHOOK_BASE_URL: http://n8n:5678/webhook
+      N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-https://vaibhavpo.app.n8n.cloud/webhook}
     volumes:
       - uploads:/app/uploads
       - reports:/app/reports
@@ -222,8 +161,6 @@ volumes:
   redisdata:
     driver: local
   qdrantdata:
-    driver: local
-  n8ndata:
     driver: local
   uploads:
     driver: local
