@@ -343,6 +343,11 @@ export default function UploadPage() {
           <p className="text-[12px] text-surface-500 dark:text-gray-500 mb-4">
             The core procurement document for Docling AI extraction.
           </p>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-3 mb-4">
+            <p className="text-[12px] text-yellow-800 dark:text-yellow-200 font-medium">
+              ⚠️ Ingestion of document may take time due to limited resources. Do not press again and wait to retry.
+            </p>
+          </div>
 
           {/* Upload zone */}
           <div
@@ -434,6 +439,11 @@ export default function UploadPage() {
           <p className="text-[12px] text-surface-500 dark:text-gray-500 mb-4">
             Upload support files and technical appendices.
           </p>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-3 mb-4">
+            <p className="text-[12px] text-yellow-800 dark:text-yellow-200 font-medium">
+              ⚠️ Ingestion of document may take time due to limited resources. Do not press again and wait to retry.
+            </p>
+          </div>
 
           {/* Add bidder form */}
           {activeTender && (

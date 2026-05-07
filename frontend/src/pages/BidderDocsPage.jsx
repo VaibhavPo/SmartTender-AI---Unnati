@@ -201,6 +201,11 @@ export default function BidderDocsPage() {
                   {uploading ? "Uploading..." : "Upload Batch"}
                 </p>
                 <p className="text-[10px] text-surface-400 dark:text-gray-600 mt-0.5">PDF, PNG, JPG, TIFF, DOCX</p>
+                <div className="mt-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-2">
+                  <p className="text-[10px] text-yellow-800 dark:text-yellow-200 font-medium">
+                    ⚠️ Ingestion may take time due to limited resources. Do not retry.
+                  </p>
+                </div>
               </div>
             </div>
           )}

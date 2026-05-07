@@ -94,6 +94,20 @@ export default function EvaluationDashboardPage() {
         </div>
       )}
 
+      {/* Warning messages */}
+      <div className="space-y-3">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-4">
+          <p className="text-[13px] text-yellow-800 dark:text-yellow-200 font-medium">
+            ⚠️ Evaluation may take time for these many bidders. Please wait before retry.
+          </p>
+        </div>
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/30 rounded-lg p-4">
+          <p className="text-[13px] text-orange-800 dark:text-orange-200 font-medium">
+            ⚠️ Evaluation may not be accurate due to limitations of resources and free AI models.
+          </p>
+        </div>
+      </div>
+
       {loading ? (
         <div className="stitch-card py-16 text-center">
           <div className="inline-block w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
