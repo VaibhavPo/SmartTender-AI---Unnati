@@ -13,12 +13,28 @@ Why Pydantic Settings over raw os.environ:
 """
 
 from pathlib import Path
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # ── PostgreSQL ──
     DATABASE_URL: str = "postgresql+asyncpg://smarttender:smarttender_dev@postgres:5432/smarttender"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def ensure_async_driver(cls, v: str) -> str:
+        """
+        Railway injects DATABASE_URL as 'postgresql://...' (the standard
+        libpq form). SQLAlchemy's async engine requires an explicit async
+        driver in the scheme. Rewrite bare postgresql:// → postgresql+asyncpg://
+        so the app starts regardless of how the env var is set.
+        """
+        if v.startswith("postgres://"):
+            v = "postgresql+asyncpg://" + v[len("postgres://"):]
+        elif v.startswith("postgresql://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
 
     # ── Redis ──
     REDIS_HOST: str = "redis"
