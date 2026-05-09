@@ -14,7 +14,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_db
 from app.models.schemas import CriterionSchema, EvaluationTrigger
 from app.models.db_models import CriterionDB, TenderDB, AuditEventDB, EvidenceDB, VerdictDB

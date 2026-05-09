@@ -14,7 +14,6 @@ Called by: React (Audit Trail panel), n8n (optional logging).
 
 import uuid
 import logging
-from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,7 +22,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.schemas import AuditEvent, AuditEventType
 from app.models.db_models import AuditEventDB, TenderDB
 
 logger = logging.getLogger("smarttender.audit")

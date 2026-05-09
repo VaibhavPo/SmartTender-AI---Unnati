@@ -10,8 +10,6 @@ evidence, verdicts) hangs off a tender_id.
 """
 
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func

@@ -11,7 +11,6 @@ overrides, we INSERT a new row with version+1, never UPDATE the old one.
 
 import uuid
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
