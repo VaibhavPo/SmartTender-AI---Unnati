@@ -99,6 +99,62 @@ services:
       start_period: 30s  # Docling loads ML models on startup — give it time
 
   # ────────────────────────────────────────────
+  # n8n — AI workflow orchestrator
+  # All AI logic lives here.
+  # ────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:1.73.1
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_USER_FOLDER: /home/node/.n8n
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-smarttender_n8n}
+      GENERIC_TIMEZONE: ${N8N_DEFAULT_TIMEZONE:-Asia/Kolkata}
+      TZ: ${N8N_DEFAULT_TIMEZONE:-Asia/Kolkata}
+      N8N_RESTRICT_ENVIRONMENT_VARIABLES: "false"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+    volumes:
+      - n8ndata:/home/node/.n8n
+    depends_on:
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+  # ────────────────────────────────────────────
+  # n8n-import — One-time workflow importer
+  # ────────────────────────────────────────────
+  n8n-import:
+    image: n8nio/n8n:1.73.1
+    container_name: smarttenderai-unnati-n8n-import
+    volumes:
+      - n8ndata:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "Waiting for n8n to initialize..."
+        sleep 5
+        echo "Importing workflows from /workflows..."
+        n8n import:workflow --separate --input=/workflows
+        
+        echo "Activating workflows..."
+        n8n list:workflow | grep '|' | while read line; do
+          id=$$(echo $$line | cut -d'|' -f1)
+          echo "Activating workflow $$id..."
+          n8n update:workflow --id=$$id --active=true
+        done
+        echo "Workflows imported and activated successfully."
+    depends_on:
+      n8n:
+        condition: service_started
+
+  # ────────────────────────────────────────────
   # FastAPI Backend — thin API layer, no AI logic
   # ────────────────────────────────────────────
   backend:
@@ -111,21 +167,21 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://smarttender:smarttender_dev@postgres:5432/smarttender
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://smarttender:smarttender_dev@postgres:5432/smarttender}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      QDRANT_HOST: ${QDRANT_HOST:-qdrant}
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-tender_docs}
       QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-768}
       MODEL_RUNNER_BASE_URL: ${MODEL_RUNNER_BASE_URL:-http://model-runner.docker.internal/engines/llama.cpp/v1}
-      DOCLING_HOST: docling
-      DOCLING_PORT: 8001
+      DOCLING_HOST: ${DOCLING_HOST:-docling}
+      DOCLING_PORT: ${DOCLING_PORT:-8001}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       REPORT_DIR: ${REPORT_DIR:-/app/reports}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-https://vaibhavpo.app.n8n.cloud/webhook}
+      N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-http://n8n:5678/webhook}
     volumes:
       - uploads:/app/uploads
       - reports:/app/reports
@@ -161,6 +217,8 @@ volumes:
   redisdata:
     driver: local
   qdrantdata:
+    driver: local
+  n8ndata:
     driver: local
   uploads:
     driver: local

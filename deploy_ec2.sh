@@ -157,8 +157,19 @@ else
   cp .env .env.bak
 fi
 
-# Generate secure random DB password
-DB_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24 || openssl rand -hex 16 || echo "smarttender_secure_prod_pass")
+# Generate secure random DB password or reuse existing one from .env
+if [ -f .env ] && grep -q "^POSTGRES_PASSWORD=" .env; then
+  DB_PASS=$(grep "^POSTGRES_PASSWORD=" .env | cut -d'=' -f2-)
+  # Strip quotes if they exist
+  DB_PASS="${DB_PASS#\"}"
+  DB_PASS="${DB_PASS%\"}"
+  DB_PASS="${DB_PASS#\'}"
+  DB_PASS="${DB_PASS%\'}"
+  log_info "Reusing existing database password from .env"
+else
+  DB_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24 || openssl rand -hex 16 || echo "smarttender_secure_prod_pass")
+  log_info "Generated new secure database password."
+fi
 
 # Safe sed replacement helper function
 replace_in_env() {
@@ -224,14 +235,16 @@ echo "  Frontend URL:     $FRONTEND_ORIGIN"
 echo "  Backend API:      http://$HOST_NAME:8000"
 echo "  API Health Check: http://$HOST_NAME:8000/health"
 echo "  API Docs:         http://$HOST_NAME:8000/docs"
+echo "  n8n Workflows:    http://$HOST_NAME:5678"
 echo "  Qdrant Store:     http://$HOST_NAME:6333/dashboard"
 echo "  Docling OCR:      http://$HOST_NAME:8001/health"
 echo "======================================================================"
 echo "Next Steps:"
-echo "1. Verify you opened ports 80, 443, 8000, and 5173 in your"
+echo "1. Verify you opened ports 80, 443, 8000, 5173, and 5678 in your"
 echo "   AWS EC2 Security Group."
-echo "2. Configure your Amazon Bedrock / SageMaker model access variables"
-echo "   in the '.env' file or directly in your n8n workflows."
-echo "3. Import workflows and update their endpoints to point to"
-echo "   http://$PUBLIC_IP:8000/api/v1/webhooks/..."
+echo "2. Open n8n Workflows UI (http://$HOST_NAME:5678) and log in with"
+echo "   username: admin / password: smarttender_n8n."
+echo "3. Configure your Amazon Bedrock / SageMaker credentials inside n8n."
+echo "4. The n8n-import container has automatically pre-loaded and activated"
+echo "   the local workflows for you."
 echo "======================================================================"

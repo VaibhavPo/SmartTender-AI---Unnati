@@ -218,47 +218,32 @@ docker compose ps
 
 ---
 
-## 🌐 Step 4: Configure n8n Cloud
+## 🌐 Step 4: Configure Local n8n Instance
 
-### 4.1 Create n8n Cloud Account
+### 4.1 Access Local n8n
 
-1. Go to https://n8n.io/cloud
-2. Sign up with email
-3. Create workspace
-4. Get your Cloud URL: `https://your-username.n8n.cloud`
+1. The n8n service runs locally on your EC2 instance and is exposed on port `5678`.
+2. Open your browser and navigate to `http://<EC2_PUBLIC_IP>:5678` (ensure port `5678` is allowed in your AWS Security Group).
+3. Log in with the default admin credentials configured in `.env`:
+   - **Username**: `admin`
+   - **Password**: `smarttender_n8n`
 
-### 4.2 Create n8n Workflows
+### 4.2 Automated Workflow Import
 
-Recreate the 5 workflows in n8n Cloud:
+During the deployment, the `n8n-import` container automatically:
+1. Imports all 5 core workflows (`Document Ingestion`, `Criteria Extraction`, `Evidence Extraction`, `Verdict Engine`, and `Report Generation`) from the project's `/n8n/workflows` directory.
+2. Automatically activates them.
 
-1. **Workflow 1: Document Ingestion**
-   - Trigger: Webhook (`/webhook/document-ingestion`)
-   - Nodes: Call Docling → Embed with Qdrant → POST to FastAPI
-   - Callback: `http://<EC2_IP>:8000/api/v1/webhooks/ingestion-complete`
-
-2. **Workflow 2: Criteria Extraction**
-   - Trigger: Webhook (`/webhook/criteria-extraction`)
-   - Nodes: Fetch tender → Call Mistral LLM → Extract criteria
-   - Callback: `http://<EC2_IP>:8000/api/v1/webhooks/criteria-extracted`
-
-3. **Workflow 3: Evidence Extraction**
-   - Similar pattern with bidder document search
-
-4. **Workflow 4: Verdict Engine**
-   - LLM-based verdict logic
-
-5. **Workflow 5: Report Generation**
-   - Aggregates verdicts → HTML → PDF
+No manual recreation or importing of workflows is necessary!
 
 ### 4.3 Connect to Amazon Bedrock or SageMaker
 
-In n8n Cloud, configure your AWS Bedrock or SageMaker credentials:
+Since you are using Amazon-specific models, you need to configure your AWS credentials in your local n8n:
 
-- **AWS Credentials**: Add your AWS Access Key, Secret Key, and Region.
-- **Model Provider**: Select AWS Bedrock / SageMaker.
-- **Model**: Select your chosen Amazon-specific model (e.g. Anthropic Claude 3 / 3.5 on Bedrock, or your hosted Llama-3 model).
-
-Then in your LLM/Embedding nodes in the n8n workflows, select this AWS credential and model provider.
+1. Go to **Settings → Credentials → Add Credential**.
+2. Select **AWS (Amazon Web Services)**.
+3. Provide your AWS Access Key ID, Secret Access Key, and AWS Region.
+4. Open the workflows in n8n and update the LLM/Embedding nodes to use the **AWS Bedrock** or **SageMaker** provider and select your Amazon-specific models (e.g., Anthropic Claude 3/3.5, or your custom Llama-3 models hosted on SageMaker).
 
 ---
 
