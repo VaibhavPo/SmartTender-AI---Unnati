@@ -99,6 +99,44 @@ services:
       start_period: 30s  # Docling loads ML models on startup — give it time
 
   # ────────────────────────────────────────────
+  # Ollama — Local Embedding Model Runner
+  # Hosts nomic-embed-text:v1.5 for fast local vectors
+  # ────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ────────────────────────────────────────────
+  # Ollama Puller — Auto-downloads the model
+  # ────────────────────────────────────────────
+  ollama-pull:
+    image: curlimages/curl:latest
+    container_name: smarttenderai-unnati-ollama-pull
+    restart: "no"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Ollama to be ready..."
+        while ! curl -s http://ollama:11434/api/tags >/dev/null; do
+          sleep 2
+        done
+        echo "Pulling nomic-embed-text:v1.5 model..."
+        curl -s -X POST http://ollama:11434/api/pull -d '{"name": "nomic-embed-text:v1.5"}'
+        echo "Model pulled successfully."
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # ────────────────────────────────────────────
   # n8n — AI workflow orchestrator
   # All AI logic lives here.
   # ────────────────────────────────────────────
@@ -175,7 +213,7 @@ services:
       QDRANT_PORT: ${QDRANT_PORT:-6333}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-tender_docs}
       QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-768}
-      MODEL_RUNNER_BASE_URL: ${MODEL_RUNNER_BASE_URL:-http://model-runner.docker.internal/engines/llama.cpp/v1}
+      MODEL_RUNNER_BASE_URL: ${MODEL_RUNNER_BASE_URL:-http://ollama:11434/v1}
       DOCLING_HOST: ${DOCLING_HOST:-docling}
       DOCLING_PORT: ${DOCLING_PORT:-8001}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
