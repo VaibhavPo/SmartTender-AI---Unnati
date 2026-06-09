@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Optional, Union
+from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
@@ -343,7 +344,7 @@ class TenderResponse(BaseModel):
     description: Optional[str] = None
     submission_deadline: Optional[str] = None
     status: str = "draft"
-    created_at: str
+    created_at: datetime
     bidder_count: int = 0
     document_count: int = 0
 
@@ -361,7 +362,7 @@ class BidderResponse(BaseModel):
     tender_id: str
     name: str
     registration_number: Optional[str] = None
-    created_at: str
+    created_at: datetime
 
 
 class EvaluationTrigger(BaseModel):
