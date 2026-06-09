@@ -36,13 +36,15 @@ graph TD
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
+### Local Development Setup
+
+#### 1. Prerequisites
 - **Docker Desktop** with **Docker Model Runner** enabled.
   (Settings → Features in development → Enable "Docker Model Runner")
 - **16 GB RAM** minimum recommended for the full experience.
 - **8 GB RAM** minimum for the "Low RAM" mode (Mistral + Nomic only).
 
-### 2. First-Time Setup (Pull AI Models)
+#### 2. First-Time Setup (Pull AI Models)
 Run these commands once to download the required local AI models:
 ```bash
 # Main LLM for reasoning and extraction (~4.1 GB)
@@ -55,19 +57,51 @@ docker model pull ai/nomic-embed-text
 docker model pull ai/llava-7b
 ```
 
-### 3. Launch the Platform
+#### 3. Launch the Platform
 ```bash
 cp .env.example .env    # Review and adjust if needed
-docker compose up -d    # Start all services (PostgreSQL, Redis, Qdrant, n8n, FastAPI, React)
+docker compose up -d    # Start all services (PostgreSQL, Redis, Qdrant, Docling, FastAPI, React)
 ```
 
-### 4. Post-Setup: Configure n8n Credentials
-1. Open **n8n** at [http://localhost:5678](http://localhost:5678).
-2. Login with `admin` / `smarttender_n8n`.
-3. Go to **Settings → Credentials → Add → OpenAI API**.
-   - **API Key**: `any-string` (Docker Model Runner doesn't need one, but n8n requires it).
-   - **Base URL**: `http://model-runner.docker.internal/engines/llama.cpp/v1`
-4. Save the credential. The workflows are automatically imported and activated.
+#### 4. Post-Setup: Configure Docker Model Runner Connection
+1. Update `.env` if running against external Docker Model Runner
+2. Backend will auto-connect to models at startup
+
+---
+
+## 🌐 Production Deployment
+
+### **AWS EC2 Deployment** (Recommended)
+
+For production, deploy on AWS EC2 with **n8n Cloud** for workflow orchestration.
+
+**Architecture:**
+- **EC2 Instance** (c5.2xlarge): FastAPI, React, PostgreSQL, Redis, Qdrant, Docling, Docker Model Runner
+- **n8n Cloud** (managed): All AI workflows
+- **Docker Model Runner**: Native LLM inference on EC2
+
+**Why this setup?**
+- ✅ Scalable and production-ready
+- ✅ n8n Cloud handles backups & maintenance
+- ✅ Minimal server overhead (just databases + APIs)
+- ✅ Pay-as-you-go: ~$280/month baseline
+
+**See [AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md) for step-by-step instructions.**
+
+---
+
+## 🔄 n8n Cloud vs Self-Hosted
+
+| Feature | n8n Cloud | Self-Hosted |
+|---------|-----------|-------------|
+| Setup | 5 minutes | 30 minutes |
+| Maintenance | None | Weekly |
+| Backups | Automatic | Manual |
+| Cost | $20-50/month | Included in EC2 |
+| Workflows limit | 1,000-10,000/month | Unlimited |
+| Latency | Slightly higher | Lower |
+
+**We recommend n8n Cloud for AWS deployments.** See [N8N_CLOUD_SETUP.md](N8N_CLOUD_SETUP.md).
 
 ---
 
@@ -77,7 +111,7 @@ Use the sample documents in the [`TestingDocument/`](file:///d:/Code/SmartTender
 
 ### Step 1: Ingestion Portal
 1. Open the **Frontend** at [http://localhost:5173](http://localhost:5173).
-2. Click **"New Tender"** and enter a name (e.g., "SmartTender Demo").
+2. Click **"New Tender"** and enter a name (e.g., "SmartTender Demo")
 3. **Upload Tender Notice**: Upload `Unnati_Tender_Document.pdf`. Wait for the "Ingested" status.
 4. **Register Bidders**: Add three bidders:
    - "Strong Bidder"
@@ -122,6 +156,14 @@ If your machine has less than 16 GB RAM:
 3. **Reduce PostgreSQL memory** — The `docker-compose.yml` is already tuned for moderate usage, but you can further reduce `shared_buffers` in the postgres command if needed.
 
 **Minimum viable RAM: 8 GB** (Mistral + Nomic only).
+
+---
+
+## 🖨️ PDF Generation on Windows
+
+If you are running the backend **natively on Windows** (not via Docker), you must install the GTK Runtime for PDF reports to work. 
+
+See the [**GTK Windows Setup Guide**](file:///d:/Code/SmartTender%20AI%20-%20Unnati/GTK_WINDOWS_SETUP.md) for instructions.
 
 ---
 

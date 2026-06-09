@@ -8,6 +8,8 @@ Called by: React (Evaluation Dashboard, Manual Review), n8n (POST results).
 
 import logging
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,8 +27,8 @@ router = APIRouter(prefix="/evidence")
 @router.get("", response_model=list[EvidenceObject])
 async def list_evidence(
     tender_id: str,
-    bidder_id: str = None,
-    criterion_id: str = None,
+    bidder_id: Optional[str] = None,
+    criterion_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -45,21 +47,7 @@ async def list_evidence(
     result = await db.execute(query)
     evidence_list = result.scalars().all()
 
-    return [
-        EvidenceObject(
-            id=e.id,
-            tender_id=e.tender_id,
-            bidder_id=e.bidder_id,
-            criterion_id=e.criterion_id,
-            extracted_value=e.extracted_value,
-            source_text=e.source_text,
-            source_pages=e.source_pages or [],
-            confidence=e.confidence,
-            extraction_method=e.extraction_method,
-            extracted_at=e.extracted_at.isoformat() if e.extracted_at else None,
-        )
-        for e in evidence_list
-    ]
+    return [EvidenceObject.model_validate(e) for e in evidence_list]
 
 
 # ── GET /evidence/{id} — Get single evidence ──
@@ -74,15 +62,4 @@ async def get_evidence(evidence_id: str, db: AsyncSession = Depends(get_db)):
     if not e:
         raise HTTPException(status_code=404, detail="Evidence not found")
 
-    return EvidenceObject(
-        id=e.id,
-        tender_id=e.tender_id,
-        bidder_id=e.bidder_id,
-        criterion_id=e.criterion_id,
-        extracted_value=e.extracted_value,
-        source_text=e.source_text,
-        source_pages=e.source_pages or [],
-        confidence=e.confidence,
-        extraction_method=e.extraction_method,
-        extracted_at=e.extracted_at.isoformat() if e.extracted_at else None,
-    )
+    return EvidenceObject.model_validate(e)

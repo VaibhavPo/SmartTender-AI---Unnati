@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     DOCLING_PORT: int = 8001
 
     # ── CORS ──
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5178,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5178,http://localhost:3000,http://13.61.7.216:5173"
 
     # ── File paths ──
     UPLOAD_DIR: str = "/app/uploads"
@@ -47,8 +47,11 @@ class Settings(BaseSettings):
     # ── Logging ──
     LOG_LEVEL: str = "INFO"
 
-    # ── n8n ──
-    N8N_WEBHOOK_BASE_URL: str = "http://n8n:5678/webhook"
+    # ── n8n Configuration ──
+    # For n8n Cloud, use: https://your-instance.n8n.cloud/webhook
+    # For self-hosted, use: http://n8n:5678/webhook
+    # Default is n8n cloud placeholder to avoid local DNS issues.
+    N8N_WEBHOOK_BASE_URL: str = "https://vaibhavpo.app.n8n.cloud/webhook"
 
     class Config:
         # Look for .env in the project root (two levels up from this file)

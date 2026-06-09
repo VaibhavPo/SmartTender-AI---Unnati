@@ -9,6 +9,7 @@ Called by: React (Criteria Review screen), n8n (POST extracted criteria).
 
 import uuid
 import logging
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, delete
@@ -77,21 +78,8 @@ async def list_criteria(
     result = await db.execute(query)
     criteria = result.scalars().all()
 
-    return [
-        CriterionSchema(
-            id=c.id,
-            tender_id=c.tender_id,
-            name=c.name,
-            description=c.description,
-            criterion_type=c.criterion_type,
-            threshold_value=c.threshold_value,
-            unit=c.unit,
-            is_mandatory=c.is_mandatory,
-            section_reference=c.section_reference,
-            order_index=c.order_index,
-        )
-        for c in criteria
-    ]
+    return [CriterionSchema.model_validate(c) for c in criteria]
+
 
 
 # ── PUT /criteria/{id} — Update a single criterion (officer editing) ──
@@ -113,29 +101,19 @@ async def update_criterion(
     if not criterion:
         raise HTTPException(status_code=404, detail="Criterion not found")
 
-    criterion.name = body.name
-    criterion.description = body.description
-    criterion.criterion_type = body.criterion_type
-    criterion.threshold_value = body.threshold_value
-    criterion.unit = body.unit
-    criterion.is_mandatory = body.is_mandatory
-    criterion.section_reference = body.section_reference
-    criterion.order_index = body.order_index
+    cast(Any, criterion).name = body.name
+    cast(Any, criterion).description = body.description
+    cast(Any, criterion).criterion_type = body.criterion_type
+    cast(Any, criterion).threshold_value = body.threshold_value
+    cast(Any, criterion).unit = body.unit
+    cast(Any, criterion).is_mandatory = body.is_mandatory
+    cast(Any, criterion).section_reference = body.section_reference
+    cast(Any, criterion).order_index = body.order_index
 
     await db.flush()
 
-    return CriterionSchema(
-        id=criterion.id,
-        tender_id=criterion.tender_id,
-        name=criterion.name,
-        description=criterion.description,
-        criterion_type=criterion.criterion_type,
-        threshold_value=criterion.threshold_value,
-        unit=criterion.unit,
-        is_mandatory=criterion.is_mandatory,
-        section_reference=criterion.section_reference,
-        order_index=criterion.order_index,
-    )
+    return CriterionSchema.model_validate(criterion)
+
 
 
 # ── DELETE /criteria/{id} — Delete a single criterion ──
@@ -217,7 +195,7 @@ async def confirm_criteria_and_evaluate(
         )
         criterion = crit_result.scalar_one_or_none()
         if criterion:
-            criterion.status = "confirmed"
+            cast(Any, criterion).status = "confirmed"
 
     await db.commit()
 

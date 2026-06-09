@@ -12,6 +12,8 @@ overrides, we INSERT a new row with version+1, never UPDATE the old one.
 import uuid
 import logging
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func
@@ -30,7 +32,7 @@ router = APIRouter(prefix="/verdicts")
 @router.get("", response_model=list[VerdictRecord])
 async def list_verdicts(
     tender_id: str,
-    bidder_id: str = None,
+    bidder_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -70,22 +72,7 @@ async def list_verdicts(
     result = await db.execute(query)
     verdicts = result.scalars().all()
 
-    return [
-        VerdictRecord(
-            id=v.id,
-            tender_id=v.tender_id,
-            bidder_id=v.bidder_id,
-            criterion_id=v.criterion_id,
-            evidence_id=v.evidence_id,
-            verdict=v.verdict,
-            reason=v.reason,
-            confidence=v.confidence,
-            decided_by=v.decided_by,
-            version=v.version,
-            decided_at=v.decided_at.isoformat() if v.decided_at else None,
-        )
-        for v in verdicts
-    ]
+    return [VerdictRecord.model_validate(v) for v in verdicts]
 
 
 # ── POST /verdicts/override — Officer overrides a verdict ──
@@ -156,16 +143,5 @@ async def override_verdict(body: OverrideRequest, db: AsyncSession = Depends(get
         f"→ {new_verdict.id} v{new_verdict.version} ({body.new_verdict})"
     )
 
-    return VerdictRecord(
-        id=new_verdict.id,
-        tender_id=new_verdict.tender_id,
-        bidder_id=new_verdict.bidder_id,
-        criterion_id=new_verdict.criterion_id,
-        evidence_id=new_verdict.evidence_id,
-        verdict=new_verdict.verdict,
-        reason=new_verdict.reason,
-        confidence=new_verdict.confidence,
-        decided_by=new_verdict.decided_by,
-        version=new_verdict.version,
-        decided_at=new_verdict.decided_at.isoformat() if new_verdict.decided_at else None,
-    )
+    return VerdictRecord.model_validate(new_verdict)
+

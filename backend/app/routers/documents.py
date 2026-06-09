@@ -12,6 +12,7 @@ import os
 import uuid
 import base64
 import logging
+from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
@@ -34,7 +35,7 @@ router = APIRouter(prefix="/documents")
 async def upload_document(
     file: UploadFile = File(...),
     tender_id: str = Form(...),
-    bidder_id: str = Form(None),
+    bidder_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -140,17 +141,7 @@ async def upload_document(
         # Officer can re-trigger ingestion manually.
         logger.error(f"Failed to trigger n8n ingestion: {e}")
 
-    return StructuredDocumentObject(
-        id=doc_id,
-        tender_id=tender_id,
-        bidder_id=bidder_id,
-        filename=file.filename or "unknown",
-        file_type=file.content_type or "application/pdf",
-        num_pages=0,
-        page_blocks=[],
-        avg_confidence=0.0,
-        status="pending",
-    )
+    return StructuredDocumentObject.model_validate(doc)
 
 
 # ── GET /documents/{id} — Get a single document with its SDO ──
@@ -165,25 +156,14 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    return StructuredDocumentObject(
-        id=doc.id,
-        tender_id=doc.tender_id,
-        bidder_id=doc.bidder_id,
-        filename=doc.filename,
-        file_type=doc.file_type,
-        num_pages=doc.num_pages,
-        page_blocks=doc.page_blocks or [],
-        avg_confidence=doc.avg_confidence,
-        status=doc.status,
-        ingested_at=doc.ingested_at.isoformat() if doc.ingested_at else None,
-    )
+    return StructuredDocumentObject.model_validate(doc)
 
 
 # ── GET /documents?tender_id=X — List documents for a tender ──
 @router.get("", response_model=list[StructuredDocumentObject])
 async def list_documents(
     tender_id: str,
-    bidder_id: str = None,
+    bidder_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -197,21 +177,7 @@ async def list_documents(
     result = await db.execute(query)
     docs = result.scalars().all()
 
-    return [
-        StructuredDocumentObject(
-            id=doc.id,
-            tender_id=doc.tender_id,
-            bidder_id=doc.bidder_id,
-            filename=doc.filename,
-            file_type=doc.file_type,
-            num_pages=doc.num_pages,
-            page_blocks=doc.page_blocks or [],
-            avg_confidence=doc.avg_confidence,
-            status=doc.status,
-            ingested_at=doc.ingested_at.isoformat() if doc.ingested_at else None,
-        )
-        for doc in docs
-    ]
+    return [StructuredDocumentObject.model_validate(doc) for doc in docs]
 
 
 # ── GET /documents/{id}/file — Stream the raw file binary ──
@@ -240,8 +206,8 @@ async def get_document_file(document_id: str, db: AsyncSession = Depends(get_db)
 
     return FileResponse(
         path=doc.file_path,
-        media_type=doc.file_type,
-        filename=doc.filename,
+        media_type=cast(str, doc.file_type),
+        filename=cast(str, doc.filename),
     )
 
 

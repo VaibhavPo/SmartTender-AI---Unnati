@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Optional, Union
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 # ╔══════════════════════════════════════════════════════════════════╗
@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field, field_validator
 # ╚══════════════════════════════════════════════════════════════════╝
 
 class PageBlock(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     page_num: int = Field(..., description="1-indexed page number within the document")
     block_index: int = Field(..., description="0-indexed position of this block on the page — preserves reading order")
     block_type: str = Field(
@@ -62,6 +63,7 @@ class PageBlock(BaseModel):
 # ╚══════════════════════════════════════════════════════════════════╝
 
 class StructuredDocumentObject(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str = Field(..., description="UUID — primary key")
     tender_id: str = Field(..., description="FK to the tender this document belongs to")
     bidder_id: Optional[str] = Field(
@@ -119,6 +121,7 @@ class CriterionType(str, Enum):
 
 
 class CriterionSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str = Field(..., description="UUID — primary key")
     tender_id: str = Field(..., description="FK to the tender")
     name: str = Field(..., description="Short human-readable criterion name, e.g., 'Minimum Annual Turnover'")
@@ -173,6 +176,7 @@ class CriterionSchema(BaseModel):
 # ╚══════════════════════════════════════════════════════════════════╝
 
 class EvidenceObject(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str = Field(..., description="UUID — primary key")
     tender_id: str = Field(..., description="FK to the tender")
     bidder_id: str = Field(..., description="FK to the bidder — every evidence is bidder-specific")
@@ -231,6 +235,7 @@ class VerdictStatus(str, Enum):
 
 
 class VerdictRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str = Field(..., description="UUID — primary key")
     tender_id: str = Field(..., description="FK to the tender")
     bidder_id: str = Field(..., description="FK to the bidder")
@@ -287,6 +292,7 @@ class AuditEventType(str, Enum):
 
 
 class AuditEvent(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str = Field(..., description="UUID — primary key")
     tender_id: str = Field(..., description="FK to the tender — every audit event is tender-scoped")
     event_type: AuditEventType = Field(..., description="What happened")
@@ -329,6 +335,7 @@ class TenderCreate(BaseModel):
 
 
 class TenderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     """Response body for a tender."""
     id: str
     name: str
@@ -348,6 +355,7 @@ class BidderCreate(BaseModel):
 
 
 class BidderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     """Response body for a bidder."""
     id: str
     tender_id: str

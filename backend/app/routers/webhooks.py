@@ -16,6 +16,7 @@ Naming convention:
 import uuid
 import logging
 from datetime import datetime, timezone
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -59,11 +60,11 @@ async def ingestion_complete(body: StructuredDocumentObject, db: AsyncSession = 
         logger.error(f"Document {body.id} not found for ingestion callback")
         return {"error": "Document not found"}
 
-    doc.num_pages = body.num_pages
-    doc.page_blocks = [block.model_dump() for block in body.page_blocks]
-    doc.avg_confidence = body.avg_confidence
-    doc.status = "completed"
-    doc.ingested_at = datetime.now(timezone.utc)
+    cast(Any, doc).num_pages = body.num_pages
+    cast(Any, doc).page_blocks = [block.model_dump() for block in body.page_blocks]
+    cast(Any, doc).avg_confidence = body.avg_confidence
+    cast(Any, doc).status = "completed"
+    cast(Any, doc).ingested_at = datetime.now(timezone.utc)
 
     # Audit event
     audit = AuditEventDB(
@@ -184,7 +185,7 @@ async def criteria_extraction_failed(
         logger.error(f"Tender {body.tender_id} not found for criteria-extraction-failed callback")
         return {"error": "Tender not found"}
 
-    tender.status = "criteria_failed"
+    cast(Any, tender).status = "criteria_failed"
 
     # Audit event — record the failure with raw output for debugging
     audit = AuditEventDB(
@@ -281,12 +282,12 @@ async def verdict_rendered(body: VerdictRecord, db: AsyncSession = Depends(get_d
 
     if existing_verdict:
         # Overwrite existing verdict
-        existing_verdict.evidence_id = body.evidence_id
-        existing_verdict.verdict = body.verdict
-        existing_verdict.reason = body.reason
-        existing_verdict.confidence = body.confidence
-        existing_verdict.decided_by = body.decided_by
-        existing_verdict.decided_at = datetime.now(timezone.utc)
+        cast(Any, existing_verdict).evidence_id = body.evidence_id
+        cast(Any, existing_verdict).verdict = body.verdict
+        cast(Any, existing_verdict).reason = body.reason
+        cast(Any, existing_verdict).confidence = body.confidence
+        cast(Any, existing_verdict).decided_by = body.decided_by
+        cast(Any, existing_verdict).decided_at = datetime.now(timezone.utc)
 
         # Audit event for overwrite
         audit = AuditEventDB(
@@ -375,7 +376,7 @@ async def evaluation_complete(
         logger.error(f"Tender {body.tender_id} not found for evaluation-complete callback")
         return {"error": "Tender not found"}
 
-    tender.status = "evaluated"
+    cast(Any, tender).status = "evaluated"
 
     # Audit event
     audit = AuditEventDB(

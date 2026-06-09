@@ -11,6 +11,7 @@ evidence, verdicts) hangs off a tender_id.
 
 import uuid
 
+from typing import Any, cast
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,15 +40,7 @@ async def create_tender(body: TenderCreate, db: AsyncSession = Depends(get_db)):
     db.add(tender)
     await db.flush()
 
-    return TenderResponse(
-        id=tender.id,
-        name=tender.name,
-        reference_number=tender.reference_number,
-        description=tender.description,
-        submission_deadline=tender.submission_deadline,
-        status=tender.status,
-        created_at=tender.created_at.isoformat(),
-    )
+    return TenderResponse.model_validate(tender)
 
 
 # ── GET /tenders — List all tenders ──
@@ -69,17 +62,10 @@ async def list_tenders(db: AsyncSession = Depends(get_db)):
         doc_count = await db.scalar(
             select(func.count(DocumentDB.id)).where(DocumentDB.tender_id == t.id)
         )
-        responses.append(TenderResponse(
-            id=t.id,
-            name=t.name,
-            reference_number=t.reference_number,
-            description=t.description,
-            submission_deadline=t.submission_deadline,
-            status=t.status,
-            created_at=t.created_at.isoformat(),
-            bidder_count=bidder_count or 0,
-            document_count=doc_count or 0,
-        ))
+        response = TenderResponse.model_validate(t)
+        response.bidder_count = bidder_count or 0
+        response.document_count = doc_count or 0
+        responses.append(response)
 
     return responses
 
@@ -103,17 +89,10 @@ async def get_tender(tender_id: str, db: AsyncSession = Depends(get_db)):
         select(func.count(DocumentDB.id)).where(DocumentDB.tender_id == tender_id)
     )
 
-    return TenderResponse(
-        id=tender.id,
-        name=tender.name,
-        reference_number=tender.reference_number,
-        description=tender.description,
-        submission_deadline=tender.submission_deadline,
-        status=tender.status,
-        created_at=tender.created_at.isoformat(),
-        bidder_count=bidder_count or 0,
-        document_count=doc_count or 0,
-    )
+    response = TenderResponse.model_validate(tender)
+    response.bidder_count = bidder_count or 0
+    response.document_count = doc_count or 0
+    return response
 
 
 # ── POST /tenders/{id}/bidders — Add a bidder ──
@@ -137,13 +116,7 @@ async def add_bidder(tender_id: str, body: BidderCreate, db: AsyncSession = Depe
     db.add(bidder)
     await db.flush()
 
-    return BidderResponse(
-        id=bidder.id,
-        tender_id=bidder.tender_id,
-        name=bidder.name,
-        registration_number=bidder.registration_number,
-        created_at=bidder.created_at.isoformat(),
-    )
+    return BidderResponse.model_validate(bidder)
 
 
 # ── GET /tenders/{id}/bidders — List bidders ──
@@ -157,16 +130,7 @@ async def list_bidders(tender_id: str, db: AsyncSession = Depends(get_db)):
         select(BidderDB).where(BidderDB.tender_id == tender_id)
     )
     bidders = result.scalars().all()
-    return [
-        BidderResponse(
-            id=b.id,
-            tender_id=b.tender_id,
-            name=b.name,
-            registration_number=b.registration_number,
-            created_at=b.created_at.isoformat(),
-        )
-        for b in bidders
-    ]
+    return [BidderResponse.model_validate(b) for b in bidders]
 
 
 # ── GET /tenders/{id}/evaluation-data — Get normalized evaluation data ──
@@ -315,16 +279,10 @@ async def update_bidder(
         raise HTTPException(status_code=404, detail="Bidder not found")
     
     # Update fields
-    bidder.name = body.name
+    cast(Any, bidder).name = body.name
     if body.registration_number is not None:
-        bidder.registration_number = body.registration_number
+        cast(Any, bidder).registration_number = body.registration_number
     
     await db.flush()
     
-    return BidderResponse(
-        id=bidder.id,
-        tender_id=bidder.tender_id,
-        name=bidder.name,
-        registration_number=bidder.registration_number,
-        created_at=bidder.created_at.isoformat(),
-    )
+    return BidderResponse.model_validate(bidder)
