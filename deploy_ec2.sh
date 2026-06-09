@@ -188,6 +188,7 @@ replace_in_env "POSTGRES_PASSWORD" "$DB_PASS"
 replace_in_env "DATABASE_URL" "postgresql+asyncpg://smarttender:$DB_PASS@postgres:5432/smarttender"
 replace_in_env "CORS_ORIGINS" "http://localhost:5173,http://localhost:3000,$FRONTEND_ORIGIN"
 replace_in_env "VITE_API_BASE_URL" "$API_URL"
+replace_in_env "MODEL_RUNNER_BASE_URL" "http://ollama:11434/v1"
 
 if [ -n "$N8N_WEBHOOK" ]; then
   replace_in_env "N8N_WEBHOOK_BASE_URL" "$N8N_WEBHOOK"
