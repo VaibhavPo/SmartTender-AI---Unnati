@@ -265,3 +265,5 @@ volumes:
     driver: local
   reports:
     driver: local
+  ollamadata:
+    driver: local
