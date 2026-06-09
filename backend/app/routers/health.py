@@ -69,8 +69,9 @@ async def health_check(db: AsyncSession = Depends(get_db)):
             "hint": "Is Docker Model Runner enabled in Docker Desktop Settings → Features?"
         }
 
-    # Overall status
-    all_healthy = all(c["status"] == "healthy" for c in checks.values())
+    # Overall status - model_runner is required for local embeddings
+    critical_checks = ["postgres", "qdrant", "model_runner"]
+    all_healthy = all(checks[k]["status"] == "healthy" for k in critical_checks if k in checks)
     status_code = 200 if all_healthy else 503
 
     from fastapi.responses import JSONResponse

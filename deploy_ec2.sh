@@ -147,7 +147,16 @@ if [ -z "$N8N_WEBHOOK" ] && [ "$NON_INTERACTIVE" = false ]; then
   read -p "Please enter your n8n Cloud Webhook URL (e.g., https://username.n8n.cloud/webhook) [Press Enter to skip]: " N8N_WEBHOOK
 fi
 
-# 5. Configure Environment File (.env)
+# 5. Pull local embedding model using Docker Model Runner
+log_info "Pulling nomic-embed-text-v1.5 embedding model..."
+if command -v docker >/dev/null && docker info | grep -q "Extensions:"; then
+  # Try pulling using Docker GenAI / Model Runner extension if available
+  docker model pull docker.io/nomic-embed-text-v1.5 || log_warn "docker model pull failed. You may need to pull it manually or ensure the Docker AI extension is active."
+else
+  log_warn "Docker Model Runner extension not detected. Skipping model pull."
+fi
+
+# 6. Configure Environment File (.env)
 log_info "Configuring .env file..."
 if [ ! -f .env ]; then
   cp .env.example .env
