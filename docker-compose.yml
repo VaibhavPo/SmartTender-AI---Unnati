@@ -117,6 +117,7 @@ services:
       TZ: ${N8N_DEFAULT_TIMEZONE:-Asia/Kolkata}
       N8N_RESTRICT_ENVIRONMENT_VARIABLES: "false"
       NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
     volumes:
       - n8ndata:/home/node/.n8n
     depends_on:

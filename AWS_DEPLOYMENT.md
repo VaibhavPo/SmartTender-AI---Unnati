@@ -224,6 +224,8 @@ docker compose ps
 
 1. The n8n service runs locally on your EC2 instance and is exposed on port `5678`.
 2. Open your browser and navigate to `http://<EC2_PUBLIC_IP>:5678` (ensure port `5678` is allowed in your AWS Security Group).
+   > [!NOTE]
+   > By default, `N8N_SECURE_COOKIE` is set to `false` in `docker-compose.yml` so you can access the dashboard over an insecure HTTP connection. When you configure SSL/TLS (HTTPS) in Step 5, you should change `N8N_SECURE_COOKIE=true` in your `.env` file for security.
 3. Log in with the default admin credentials configured in `.env`:
    - **Username**: `admin`
    - **Password**: `smarttender_n8n`
