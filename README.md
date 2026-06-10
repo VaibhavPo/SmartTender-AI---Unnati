@@ -1,4 +1,7 @@
-# SmartTender AI: Unnati
+# 🚀 SmartTender AI: Unnati
+
+### 🌐 Live Demo
+👉 **[Open SmartTender AI](http://16.171.53.41:5173/)**
 
 **AI-Assisted Procurement & Technical Evaluation for Government Tenders.**  
 *Built for the CRPF Hackathon | Theme 3: AI-based Tender Evaluation.*
