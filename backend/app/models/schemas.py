@@ -84,7 +84,7 @@ class StructuredDocumentObject(BaseModel):
         description="Mean OCR confidence across all blocks. Displayed in the UI as a "
                     "trust indicator. Below 0.7 shows a warning badge."
     )
-    ingested_at: Optional[str] = Field(
+    ingested_at: Optional[datetime] = Field(
         None,
         description="ISO 8601 timestamp when ingestion completed. Set by n8n Workflow 1."
     )
@@ -212,7 +212,7 @@ class EvidenceObject(BaseModel):
                     "'direct_match' (exact text match), 'vision' (llava from image). "
                     "Audit trail needs this."
     )
-    extracted_at: Optional[str] = Field(
+    extracted_at: Optional[datetime] = Field(
         None,
         description="ISO 8601 timestamp when extraction completed"
     )
@@ -267,7 +267,7 @@ class VerdictRecord(BaseModel):
         description="Monotonically increasing version. When an officer overrides, a new VerdictRecord "
                     "is created with version+1. Old records are NEVER deleted (append-only audit)."
     )
-    decided_at: Optional[str] = Field(
+    decided_at: Optional[datetime] = Field(
         None,
         description="ISO 8601 timestamp when this verdict was recorded"
     )

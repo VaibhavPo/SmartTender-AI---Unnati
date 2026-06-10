@@ -229,8 +229,23 @@ function LeftSidebar() {
 // ── Main App ──
 function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("st-theme") || "light");
-  const [activeTender, setActiveTender] = useState(null);
+  const [activeTender, setActiveTender] = useState(() => {
+    try {
+      const saved = localStorage.getItem("st-active-tender");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [tenders, setTenders] = useState([]);
+
+  useEffect(() => {
+    if (activeTender) {
+      localStorage.setItem("st-active-tender", JSON.stringify(activeTender));
+    } else {
+      localStorage.removeItem("st-active-tender");
+    }
+  }, [activeTender]);
 
   useEffect(() => {
     const root = document.documentElement;
